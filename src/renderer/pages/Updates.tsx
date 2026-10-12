@@ -22,7 +22,6 @@ export function Updates() {
           applyLabel="Update selected"
           task={{ title: 'Updating apps', icon: 'available-updates', verb: 'Updating', page: 'updates' }}
           showSize={false}
-          restorePoint="Updating apps"
           search
           preselect={() => true}
           confirmText="The selected apps will be updated silently by winget. Updates run one at a time and can take a few minutes. Close the apps first so they can update."

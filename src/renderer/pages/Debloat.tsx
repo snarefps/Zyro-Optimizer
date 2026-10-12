@@ -12,9 +12,8 @@ export function Debloat() {
         applyLabel="Remove selected apps"
         task={{ title: 'Removing apps', icon: 'cut', verb: 'Removing', page: 'debloat' }}
         showSize={false}
-        restorePoint="Removing apps"
         preselect={(i) => i.risk === 'safe'}
-        confirmText="These apps will be removed for your account. A restore point is created first when running as administrator, and each removal is logged so you can bring it back."
+        confirmText="These apps will be removed for your account. Each removal is logged so you can bring it back. Create a restore point first from Settings if you want an extra safety net."
         emptyTitle="No removable bloatware found"
         emptyHint="Your Windows install is already clean."
         loadingHint="Reading installed Store apps..."

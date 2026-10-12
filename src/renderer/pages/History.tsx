@@ -3,11 +3,12 @@ import type { UndoEntry } from '../../shared/types'
 import { zy } from '../api'
 import { Icon } from '../components/Icon'
 import { Badge, Button, Card, Empty, PageHeader, ScanBar, Skeleton, useLoad, useToast } from '../components/ui'
+import { createRestorePoint } from '../lib/restore'
 import { runTask } from '../lib/tasks'
 
-const UNDOABLE = new Set(['registry', 'startup', 'appx'])
+const UNDOABLE = new Set(['registry', 'startup', 'appx', 'dns'])
 const MODULE_ICON: Record<string, string> = {
-  tweaks: 'control-panel', startup: 'rocket', debloat: 'cut', cleaner: 'broom', gamebooster: 'controller', uninstaller: 'package', disk: 'recycle-bin', updates: 'available-updates'
+  tweaks: 'control-panel', startup: 'rocket', debloat: 'cut', cleaner: 'broom', gamebooster: 'controller', uninstaller: 'package', disk: 'recycle-bin', updates: 'available-updates', dns: 'wifi'
 }
 
 export function History() {
@@ -32,11 +33,7 @@ export function History() {
   async function restorePoint() {
     setRp(true)
     try {
-      await runTask({ title: 'Creating a restore point', icon: 'restore-page', page: 'history', message: 'Asking Windows to create a restore point...' }, async (h) => {
-        const r = await zy.system.createRestorePoint()
-        if (!r.created) throw new Error(r.reason ?? 'Failed')
-        h.done('Windows restore point created')
-      })
+      await createRestorePoint('history')
     } catch (err: any) { toast('err', `Could not create restore point: ${String(err.message ?? err)}`) }
     setRp(false)
   }

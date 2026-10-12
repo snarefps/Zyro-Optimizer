@@ -38,8 +38,6 @@ pub struct Settings {
     pub schedule: Schedule,
     pub launch_at_login: bool,
     pub minimize_to_tray: bool,
-    pub last_restore_point: u64,
-    pub auto_restore_point: bool,
 }
 
 impl Default for Settings {
@@ -50,8 +48,6 @@ impl Default for Settings {
             schedule: Schedule::default(),
             launch_at_login: false,
             minimize_to_tray: true,
-            last_restore_point: 0,
-            auto_restore_point: true,
         }
     }
 }

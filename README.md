@@ -38,7 +38,7 @@ Older versions, release notes and SHA-256 checksums are on the [Releases page](h
 - **Light.** The installer is under 2 MB. With the window open it uses around 90-100 MB, and it drops to a few MB in the tray when you close the window.
 - **Reversible.** Registry values, service start types and power plans are saved before a change, so undo restores them exactly.
 - **Private.** No account, no ads, no telemetry. Nothing is sent anywhere.
-- **Careful.** Protected folders and critical processes are never touched, and a Windows restore point is created before Tune actions.
+- **Careful.** Protected folders and critical processes are never touched, and you can create a Windows restore point with one click before bigger changes.
 
 ## Features
 
@@ -46,7 +46,7 @@ Older versions, release notes and SHA-256 checksums are on the [Releases page](h
 | --- | --- |
 | **Clean** | Junk cleaner (temp files, update cache, prefetch, thumbnails, crash dumps, Recycle Bin, browser caches), disk analyzer with space map, large-file and duplicate finder, uninstaller with leftover scan |
 | **Speed up** | Startup manager (entries, services, scheduled tasks), game booster that restores everything when you stop, process list with RAM trimmer |
-| **Tune** | 24 reversible tweaks (privacy, performance, gaming, network, Windows 11), debloater for preinstalled apps, app updates through winget, driver age check |
+| **Tune** | 24 reversible tweaks (privacy, performance, gaming, network, Windows 11), debloater for preinstalled apps, app updates through winget, driver age check, **DNS changer** with Google, Cloudflare, Shecan and Iranian gaming DNS (Radar Game, Electro, 403, Begzar) |
 | **Automate** | Scheduled cleaning from the tray, history page with one-click undo |
 | **Interface** | Action Center with live progress for every job, Ctrl+K command palette, dark (true black), light and system themes |
 
@@ -57,7 +57,7 @@ Older versions, release notes and SHA-256 checksums are on the [Releases page](h
 
 - Automatic deletes go through a protected-path list (Windows, Program Files, Documents, Desktop and so on).
 - Files you pick by hand go to the Recycle Bin.
-- A Windows restore point is created before Tune actions. It needs admin rights and System Protection, and you can turn it off in Settings.
+- Restore points are never created behind your back. Create one with a click (Tweaks page or Settings) and delete old ones from the app. It needs admin rights and System Protection.
 - The interface talks to the backend through one command that dispatches to a fixed list of functions.
 
 > [!TIP]

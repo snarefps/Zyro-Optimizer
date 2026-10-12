@@ -2,7 +2,6 @@ import { ReactNode, useEffect, useMemo, useState } from 'react'
 import type { ItemResult, ScanItem } from '../../shared/types'
 import { formatBytes } from '../api'
 import { applyEach } from '../lib/actions'
-import { autoRestorePoint } from '../lib/restore'
 import { runTask } from '../lib/tasks'
 import { Badge, Button, Card, Empty, Modal, RiskBadge, ScanBar, Skeleton, useLoad, useToast } from './ui'
 
@@ -17,7 +16,6 @@ interface Props {
   emptyHint?: string
   emptyIcon?: string
   confirmText?: string
-  restorePoint?: string
   showSize?: boolean
   summarize?: (results: ItemResult[]) => string
   extra?: (i: ScanItem) => ReactNode
@@ -26,7 +24,7 @@ interface Props {
   loadingHint?: string
 }
 
-export function ScanList({ load, apply, applyLabel, task, preselect, groupBy, emptyTitle, emptyHint, emptyIcon, confirmText, restorePoint, showSize = true, summarize, extra, toolbar, search, loadingHint }: Props) {
+export function ScanList({ load, apply, applyLabel, task, preselect, groupBy, emptyTitle, emptyHint, emptyIcon, confirmText, showSize = true, summarize, extra, toolbar, search, loadingHint }: Props) {
   const { data, loading, error, reload } = useLoad(load)
   const toast = useToast()
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -65,7 +63,6 @@ export function ScanList({ load, apply, applyLabel, task, preselect, groupBy, em
       const res = await runTask(
         { title: task.title, icon: task.icon, page: task.page, message: 'Preparing...', progress: 2 },
         async (h) => {
-          if (restorePoint) await autoRestorePoint(restorePoint, h)
           return applyEach(h, [...sel], (id) => labels.get(id) ?? id, task.verb, apply)
         },
         (r) => {

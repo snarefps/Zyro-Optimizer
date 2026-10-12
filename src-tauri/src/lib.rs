@@ -2,6 +2,7 @@ mod cleaner;
 mod ctx;
 mod debloat;
 mod disk;
+mod dns;
 mod duplicates;
 mod fsx;
 mod gamebooster;
@@ -87,6 +88,11 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("monitor", "stats") => monitor::stats(),
         ("monitor", "info") => monitor::info(),
 
+        ("dns", "list") => dns::list(),
+        ("dns", "apply") => dns::apply(a_str(a, 0), a_str(a, 1), a_str(a, 2)),
+        ("dns", "reset") => dns::reset(a_str(a, 0)),
+        ("dns", "ping") => dns::ping(a_strs(a, 0)),
+
         ("scheduler", "getConfig") => scheduler::get_config(),
         ("scheduler", "setSchedule") => {
             let s = a.first().cloned().ok_or("Missing schedule")?;
@@ -100,9 +106,8 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("system", "relaunchAsAdmin") => system::relaunch_as_admin(),
         ("system", "getSettings") => system::get_settings(),
         ("system", "setSetting") => system::set_setting(a_str(a, 0), a_bool(a, 1)),
-        ("system", "restorePointNeeded") => system::restore_point_needed(),
-        ("system", "autoRestorePoint") => system::auto_restore_point(a_str(a, 0)),
         ("system", "listRestorePoints") => system::list_restore_points(),
+        ("system", "deleteRestorePoint") => system::delete_restore_point(a_u64(a, 0, 0)),
         ("system", "openSystemRestore") => system::open_system_restore(),
         ("system", "openTelegram") => system::open_telegram(),
         ("system", "openGithub") => system::open_github(),

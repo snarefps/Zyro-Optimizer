@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { zy } from '../api'
 import { Icon } from '../components/Icon'
-import { Badge, Button, Card, PageHeader, ScanBar, Segmented, Toggle, useToast } from '../components/ui'
-import { runTask } from '../lib/tasks'
-import { clearFinished } from '../lib/tasks'
+import { Badge, Button, Card, Modal, PageHeader, ScanBar, Segmented, Toggle, useToast } from '../components/ui'
+import { createRestorePoint } from '../lib/restore'
+import { clearFinished, runTask } from '../lib/tasks'
 import { setThemeMode, ThemeMode, useThemeMode } from '../lib/theme'
 
 interface RestorePoint { seq: number; description: string; created: string; byZyro: boolean }
 type PointsState = { ok: true; points: RestorePoint[] } | { ok: false; reason: string } | null
 
-type SysSettings = { launchAtLogin: boolean; minimizeToTray: boolean; autoRestorePoint: boolean }
+type SysSettings = { launchAtLogin: boolean; minimizeToTray: boolean }
 
 export function Settings() {
   const mode = useThemeMode()
@@ -19,6 +19,8 @@ export function Settings() {
   const [points, setPoints] = useState<PointsState>(null)
   const [loadingPoints, setLoadingPoints] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [toDelete, setToDelete] = useState<RestorePoint | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadPoints = useCallback(async () => {
     setLoadingPoints(true)
@@ -39,14 +41,26 @@ export function Settings() {
   async function createNow() {
     setCreating(true)
     try {
-      await runTask({ title: 'Creating a restore point', icon: 'restore-page', page: 'settings', message: 'Asking Windows to create a restore point...' }, async (h) => {
-        const r = await zy.system.createRestorePoint()
-        if (!r.created) throw new Error(r.reason ?? 'Failed')
-        h.done('Windows restore point created')
-      })
+      await createRestorePoint('settings')
       await loadPoints()
     } catch (e: any) { toast('err', `Could not create a restore point: ${String(e.message ?? e)}`) }
     setCreating(false)
+  }
+
+  async function deletePoint() {
+    const p = toDelete
+    if (!p) return
+    setDeleting(true)
+    try {
+      await runTask({ title: 'Deleting a restore point', icon: 'recycle-bin', page: 'settings', message: p.description || 'Restore point' }, async (h) => {
+        const r = await zy.system.deleteRestorePoint(p.seq)
+        if (!r.ok) throw new Error(r.reason ?? 'Failed')
+        h.done('Restore point deleted')
+      })
+      setToDelete(null)
+      await loadPoints()
+    } catch (e: any) { toast('err', `Could not delete it: ${String(e.message ?? e)}`) }
+    setDeleting(false)
   }
 
   return (
@@ -79,15 +93,8 @@ export function Settings() {
 
         <Card className="p-5">
           <div className="mb-3 flex items-center gap-2 font-bold"><Icon name="restore-page" size={22} />Restore points</div>
-          {sys && (
-            <Row
-              label="Create a restore point automatically before Tune changes"
-              hint="Applies to Tweaks, the Debloater and app updates. Needs administrator rights and System Protection turned on. A point made in the last 10 minutes is reused."
-              on={sys.autoRestorePoint}
-              onChange={(v) => set('autoRestorePoint', v)}
-            />
-          )}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <p className="text-[12px] leading-5 text-mute">Zyro never creates restore points on its own. Make one here before bigger changes, and delete the ones you no longer need. Needs administrator rights and System Protection turned on.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button icon="restore-page" onClick={createNow} busy={creating}>Create restore point now</Button>
             <Button variant="ghost" icon="refresh" onClick={loadPoints} busy={loadingPoints}>Refresh</Button>
             <Button variant="ghost" icon="time-machine" onClick={() => zy.system.openSystemRestore()}>Open System Restore</Button>
@@ -110,6 +117,7 @@ export function Settings() {
                       <div className="text-[12px] text-mute">{p.created ? new Date(p.created).toLocaleString() : ''}</div>
                     </div>
                     {p.byZyro && <Badge tone="info">Zyro</Badge>}
+                    <Button variant="ghost" icon="recycle-bin" onClick={() => setToDelete(p)}>Delete</Button>
                   </div>
                 ))}
               </div>
@@ -117,6 +125,16 @@ export function Settings() {
           </div>
           <p className="mt-3 text-[12px] text-mute">To go back to a restore point, open System Restore and choose it there.</p>
         </Card>
+
+        <Modal
+          open={!!toDelete}
+          icon="box-important"
+          title="Delete this restore point?"
+          onClose={() => !deleting && setToDelete(null)}
+          actions={<><Button variant="ghost" onClick={() => setToDelete(null)} disabled={deleting}>Cancel</Button><Button variant="danger" icon="recycle-bin" busy={deleting} onClick={deletePoint}>Delete</Button></>}
+        >
+          {toDelete?.description || 'Restore point'}{toDelete?.created ? ` from ${new Date(toDelete.created).toLocaleString()}` : ''} will be removed from Windows. You will not be able to go back to it.
+        </Modal>
 
         <Card className="p-5">
           <div className="mb-3 flex items-center gap-2 font-bold"><Icon name="bell" size={22} />Action Center</div>

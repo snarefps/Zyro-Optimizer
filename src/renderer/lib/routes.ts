@@ -17,6 +17,7 @@ export const ROUTES: RouteMeta[] = [
   { id: 'tweaks', label: 'Tweaks', icon: 'control-panel', group: 'Tune', keywords: 'tweaks privacy telemetry performance registry network windows 11' },
   { id: 'debloat', label: 'Debloater', icon: 'cut', group: 'Tune', keywords: 'debloat bloatware remove apps preinstalled' },
   { id: 'updates', label: 'Updates & Drivers', icon: 'available-updates', group: 'Tune', keywords: 'update upgrade winget drivers' },
+  { id: 'dns', label: 'DNS Changer', icon: 'wifi', group: 'Tune', keywords: 'dns changer google cloudflare shecan radar electro 403 begzar iran game gaming network' },
   { id: 'scheduler', label: 'Scheduler', icon: 'alarm-clock', group: 'Automate', keywords: 'schedule automatic tray timer' },
   { id: 'history', label: 'Restore & History', icon: 'time-machine', group: 'Automate', keywords: 'undo restore history revert log restore point' },
   { id: 'settings', label: 'Settings', icon: 'settings', group: 'App', keywords: 'settings theme dark light appearance about startup tray' }

@@ -13,6 +13,7 @@ import { Cleaner } from './pages/Cleaner'
 import { Dashboard } from './pages/Dashboard'
 import { Debloat } from './pages/Debloat'
 import { Disk } from './pages/Disk'
+import { Dns } from './pages/Dns'
 import { GameBooster } from './pages/GameBooster'
 import { History } from './pages/History'
 import { Processes } from './pages/Processes'
@@ -25,7 +26,7 @@ import { Updates } from './pages/Updates'
 
 const PAGES: Record<string, ComponentType> = {
   dashboard: Dashboard, cleaner: Cleaner, disk: Disk, uninstaller: Uninstaller, startup: Startup, gamebooster: GameBooster, processes: Processes,
-  tweaks: Tweaks, debloat: Debloat, updates: Updates, scheduler: Scheduler, history: History, settings: Settings
+  tweaks: Tweaks, debloat: Debloat, updates: Updates, dns: Dns, scheduler: Scheduler, history: History, settings: Settings
 }
 
 const currentRoute = () => window.location.hash.replace(/^#\//, '') || 'dashboard'

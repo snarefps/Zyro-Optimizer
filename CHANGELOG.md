@@ -7,7 +7,8 @@ First release.
 - Junk cleaner, disk analyzer, uninstaller
 - Startup manager, game booster, process list and RAM trimmer
 - 24 reversible tweaks, debloater, winget app updates, driver age check
-- Automatic restore point before changes in the Tune section
+- Restore points are created on request and can be deleted in the app
+- DNS changer: Google, Cloudflare, Shecan, Iranian gaming DNS and custom servers
 - Scheduled cleaning from the tray
 - History page with undo
 - Action Center with per-step progress, command palette (Ctrl+K)

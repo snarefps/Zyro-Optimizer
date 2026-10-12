@@ -1,12 +1,10 @@
 use crate::ctx::{ctx, is_admin};
 use crate::model::{to_value, Res};
 use crate::undo::UndoEntry;
-use crate::util::{now_ms, ps_arg, run_ps, run_ps_json, run_ps_timeout};
+use crate::util::{ps_arg, run_ps, run_ps_json, run_ps_timeout};
 use serde_json::{json, Value};
 use std::time::Duration;
 use tauri_plugin_autostart::ManagerExt;
-
-const RESTORE_COOLDOWN_MS: u64 = 10 * 60 * 1000;
 
 fn friendly_restore_error(raw: &str) -> String {
     let l = raw.to_lowercase();
@@ -18,7 +16,7 @@ fn friendly_restore_error(raw: &str) -> String {
 }
 
 // windows allows one restore point a day; lift the limit for this call and put it back after
-pub fn create_restore_point_raw(description: &str) -> Result<(), String> {
+fn create_restore_point_raw(description: &str) -> Result<(), String> {
     if !is_admin() {
         return Err("Needs administrator rights".into());
     }
@@ -39,44 +37,11 @@ finally {
 }
 "#
     );
-    run_ps_timeout(&script, Duration::from_secs(180))
-        .map(|_| ctx().update_settings(|s| s.last_restore_point = now_ms()))
-        .map_err(|e| friendly_restore_error(&e))
+    run_ps_timeout(&script, Duration::from_secs(180)).map(|_| ()).map_err(|e| friendly_restore_error(&e))
 }
 
 pub fn create_restore_point() -> Res<Value> {
     Ok(match create_restore_point_raw("Zyro Optimizer - manual restore point") {
-        Ok(()) => json!({ "created": true }),
-        Err(e) => json!({ "created": false, "reason": e }),
-    })
-}
-
-pub fn restore_point_needed() -> Res<Value> {
-    let s = ctx().settings();
-    if !s.auto_restore_point {
-        return Ok(json!({ "needed": false, "reason": "disabled" }));
-    }
-    if !is_admin() {
-        return Ok(json!({ "needed": false, "reason": "Needs administrator rights" }));
-    }
-    if now_ms().saturating_sub(s.last_restore_point) < RESTORE_COOLDOWN_MS {
-        return Ok(json!({ "needed": false, "reason": "recent" }));
-    }
-    Ok(json!({ "needed": true }))
-}
-
-pub fn auto_restore_point(label: String) -> Res<Value> {
-    let s = ctx().settings();
-    if !s.auto_restore_point {
-        return Ok(json!({ "created": false, "reason": "disabled" }));
-    }
-    if !is_admin() {
-        return Ok(json!({ "created": false, "reason": "Needs administrator rights" }));
-    }
-    if now_ms().saturating_sub(s.last_restore_point) < RESTORE_COOLDOWN_MS {
-        return Ok(json!({ "created": false, "reason": "recent" }));
-    }
-    Ok(match create_restore_point_raw(&format!("Zyro Optimizer - {label}")) {
         Ok(()) => json!({ "created": true }),
         Err(e) => json!({ "created": false, "reason": e }),
     })
@@ -105,6 +70,42 @@ pub fn list_restore_points() -> Res<Value> {
         }
         Err(e) => Ok(json!({ "ok": false, "reason": friendly_restore_error(&e) })),
     }
+}
+
+// srclient.dll has no PowerShell cmdlet, so call SRRemoveRestorePoint directly
+fn remove_restore_point(seq: u32) -> Result<(), String> {
+    use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+    let name: Vec<u16> = "srclient.dll\0".encode_utf16().collect();
+    unsafe {
+        let lib = LoadLibraryW(name.as_ptr());
+        if lib.is_null() {
+            return Err("System Restore is not available on this PC".into());
+        }
+        let Some(func) = GetProcAddress(lib, b"SRRemoveRestorePoint\0".as_ptr()) else {
+            return Err("System Restore is not available on this PC".into());
+        };
+        let remove: unsafe extern "system" fn(u32) -> u32 = std::mem::transmute(func);
+        match remove(seq) {
+            0 => Ok(()),
+            2 | 1168 => Err("That restore point no longer exists".into()),
+            5 => Err("Windows refused. Run Zyro as administrator".into()),
+            code => Err(format!("Windows could not remove it (error {code})")),
+        }
+    }
+}
+
+pub fn delete_restore_point(seq: u64) -> Res<Value> {
+    if !is_admin() {
+        return Ok(json!({ "ok": false, "reason": "Needs administrator rights" }));
+    }
+    let seq = u32::try_from(seq).map_err(|_| "Invalid restore point".to_string())?;
+    Ok(match remove_restore_point(seq) {
+        Ok(()) => {
+            ctx().log_add("system", &format!("Deleted restore point {seq}"), "none", None);
+            json!({ "ok": true })
+        }
+        Err(e) => json!({ "ok": false, "reason": e }),
+    })
 }
 
 pub fn open_system_restore() -> Res<Value> {
@@ -150,7 +151,7 @@ pub fn relaunch_as_admin() -> Res<Value> {
 
 pub fn get_settings() -> Res<Value> {
     let s = ctx().settings();
-    Ok(json!({ "launchAtLogin": s.launch_at_login, "minimizeToTray": s.minimize_to_tray, "autoRestorePoint": s.auto_restore_point }))
+    Ok(json!({ "launchAtLogin": s.launch_at_login, "minimizeToTray": s.minimize_to_tray }))
 }
 
 pub fn set_setting(key: String, value: bool) -> Res<Value> {
@@ -162,7 +163,6 @@ pub fn set_setting(key: String, value: bool) -> Res<Value> {
             ctx().update_settings(|s| s.launch_at_login = value);
         }
         "minimizeToTray" => ctx().update_settings(|s| s.minimize_to_tray = value),
-        "autoRestorePoint" => ctx().update_settings(|s| s.auto_restore_point = value),
         _ => return Err("Unknown setting".into()),
     }
     get_settings()
@@ -181,6 +181,7 @@ pub fn history_revert(id: String) -> Res<Value> {
         "registry" => crate::tweaks::revert_tweak(&entry),
         "startup" => crate::startup::revert(&entry),
         "appx" => crate::debloat::revert(&entry),
+        "dns" => crate::dns::revert(&entry),
         _ => Err("This action cannot be undone automatically".to_string()),
     };
     Ok(match r {

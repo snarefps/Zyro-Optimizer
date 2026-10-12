@@ -4,7 +4,7 @@ import { zy } from '../api'
 import { Icon } from '../components/Icon'
 import { Badge, Button, Card, PageHeader, RiskBadge, ScanBar, Skeleton, Toggle, useLoad, useToast } from '../components/ui'
 import { applyEach } from '../lib/actions'
-import { autoRestorePoint } from '../lib/restore'
+import { createRestorePoint } from '../lib/restore'
 import { runTask } from '../lib/tasks'
 
 const CATEGORIES: { name: string; icon: string }[] = [
@@ -23,11 +23,11 @@ export function Tweaks() {
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [running, setRunning] = useState<string | null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [rpBusy, setRpBusy] = useState(false)
 
   async function setTweak(i: ScanItem, on: boolean) {
     setPending((p) => new Set(p).add(i.id))
     try {
-      await autoRestorePoint(`Tweak - ${i.label}`)
       const res = await (on ? zy.tweaks.apply([i.id]) : zy.tweaks.revert(i.id))
       const r = Array.isArray(res) ? res[0] : res
       if (r.status === 'ok') {
@@ -48,7 +48,6 @@ export function Tweaks() {
       else await runTask(
         { title: 'Applying recommended tweaks', icon: 'control-panel', page: 'tweaks', message: 'Preparing...', progress: 2 },
         async (h) => {
-          await autoRestorePoint('Recommended tweaks', h)
           return applyEach(h, todo.map((i) => i.id), (id) => labels.get(id) ?? id, 'Applying', (ids) => zy.tweaks.apply(ids))
         },
         (r) => `Applied ${r.filter((x) => x.status === 'ok').length} of ${r.length} recommended tweak(s)`
@@ -58,12 +57,16 @@ export function Tweaks() {
     setBulkBusy(false)
   }
 
+  async function restorePoint() {
+    setRpBusy(true)
+    try { await createRestorePoint('tweaks') } catch (e: any) { toast('err', `Could not create a restore point: ${String(e.message ?? e)}`) }
+    setRpBusy(false)
+  }
+
   async function runAction(id: string, label: string) {
     setRunning(id)
     try {
       await runTask({ title: label, icon: 'maintenance', page: 'tweaks', message: 'Working...' }, async (h) => {
-        // only the heavy jobs get a restore point
-        if (id === 'trim-ssd' || id === 'dism-cleanup') await autoRestorePoint(label, h)
         const r = await zy.tweaks.runAction(id)
         if (r.status !== 'ok') throw new Error(r.reason ?? r.status)
         h.done(r.reason ?? 'Done')
@@ -77,7 +80,7 @@ export function Tweaks() {
       <PageHeader
         title="Tweaks"
         subtitle="Privacy, performance, gaming, network and Windows 11 settings. Each switch records the previous value, so turning it off restores exactly what you had."
-        actions={<><Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Refresh</Button><Button icon="sparkling" onClick={applyRecommended} busy={bulkBusy}>Apply recommended</Button></>}
+        actions={<><Button variant="ghost" icon="restore-page" onClick={restorePoint} busy={rpBusy} title="Create a Windows restore point you can go back to">Restore point</Button><Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Refresh</Button><Button icon="sparkling" onClick={applyRecommended} busy={bulkBusy}>Apply recommended</Button></>}
       />
       <div className="min-h-0 flex-1 space-y-5 overflow-auto pr-1">
         <ScanBar active={loading} />

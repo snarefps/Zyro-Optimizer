@@ -25,6 +25,7 @@ export const zy = {
   monitor: mod('monitor'),
   scheduler: mod('scheduler'),
   system: mod('system'),
+  dns: mod('dns'),
   history: mod('history')
 }
 
