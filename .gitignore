@@ -1,0 +1,14 @@
+# dependencies and build output
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# installers get attached to a GitHub release instead of being committed
+*.exe
+
+# editor, OS and tool leftovers
+.vscode/
+.idea/
+Thumbs.db
+*.log
