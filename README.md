@@ -13,7 +13,7 @@
   <a href="https://github.com/snarefps/Zyro-Optimizer/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/snarefps/Zyro-Optimizer?style=flat-square&color=2f81f7"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4?style=flat-square">
-  <img alt="Built with" src="https://img.shields.io/badge/built%20with-Tauri%202%20%2B%20Rust-orange?style=flat-square">
+  <a href="https://github.com/snarefps/Zyro-Optimizer/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/snarefps/Zyro-Optimizer/total?style=flat-square&label=downloads&color=orange"></a>
   <a href="https://t.me/ZeroNullex"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-ZeroNullex-2AABEE?style=flat-square&logo=telegram&logoColor=white"></a>
 </p>
 

@@ -105,6 +105,7 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("system", "listRestorePoints") => system::list_restore_points(),
         ("system", "openSystemRestore") => system::open_system_restore(),
         ("system", "openTelegram") => system::open_telegram(),
+        ("system", "openGithub") => system::open_github(),
 
         ("history", "list") => system::history_list(),
         ("history", "revert") => system::history_revert(a_str(a, 0)),

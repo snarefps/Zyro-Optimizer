@@ -112,12 +112,18 @@ pub fn open_system_restore() -> Res<Value> {
     Ok(Value::Null)
 }
 
-pub fn open_telegram() -> Res<Value> {
-    std::process::Command::new("rundll32.exe")
-        .args(["url.dll,FileProtocolHandler", "https://t.me/ZeroNullex"])
-        .spawn()
-        .map_err(|e| e.to_string())?;
+// only fixed addresses, the UI can not ask for an arbitrary one
+fn open_url(url: &str) -> Res<Value> {
+    std::process::Command::new("rundll32.exe").args(["url.dll,FileProtocolHandler", url]).spawn().map_err(|e| e.to_string())?;
     Ok(Value::Null)
+}
+
+pub fn open_telegram() -> Res<Value> {
+    open_url("https://t.me/ZeroNullex")
+}
+
+pub fn open_github() -> Res<Value> {
+    open_url("https://github.com/snarefps/Zyro-Optimizer")
 }
 
 // the new copy gets our pid and waits for us to exit, otherwise the single-instance check kills it

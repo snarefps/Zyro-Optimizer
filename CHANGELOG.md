@@ -13,4 +13,5 @@ First release.
 - Action Center with per-step progress, command palette (Ctrl+K)
 - Dark (black), light and system themes
 - Link to the Telegram channel in Settings
+- GitHub button in the header
 - Installer is now named Zyro-Optimizer-x64-setup.exe, `npm run release` files it under a version folder
