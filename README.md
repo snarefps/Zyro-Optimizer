@@ -24,9 +24,11 @@
 
 ## Download
 
-| File | Platform | Size | SHA-256 |
-| --- | --- | --- | --- |
-| [Zyro Optimizer_1.0.0_x64-setup.exe](https://github.com/snarefps/Zyro-Optimizer/releases/latest) | Windows 10 / 11, 64-bit | 1.9 MB | `0CEF4F2A3DCD88166E3B3B272BFC14BF44729E870297FEE7EE262D8793741847` |
+| File | Platform | Version |
+| --- | --- | --- |
+| **[Zyro-Optimizer-x64-setup.exe](https://github.com/snarefps/Zyro-Optimizer/releases/latest/download/Zyro-Optimizer-x64-setup.exe)** | Windows 10 / 11, 64-bit | Latest |
+
+Older versions, release notes and SHA-256 checksums are on the [Releases page](https://github.com/snarefps/Zyro-Optimizer/releases).
 
 > [!NOTE]
 > The installer installs for your user only, so it needs no admin rights. It is not code-signed yet, so SmartScreen may warn you on first run. Choose **More info**, then **Run anyway**.
@@ -70,7 +72,7 @@ npm install
 npx tauri build
 ```
 
-The installer ends up in `src-tauri/target/release/bundle/nsis/`.
+The installer ends up in `src-tauri/target/release/bundle/nsis/`. To build it and file it as `Zyro-Optimizer-x64-setup.exe` under a version folder (`../release/v<version>/`, with its checksum and release notes), run `npm run release`.
 
 Run the tests (some touch the real registry under a throwaway key, services and PowerShell, so use a Windows machine):
 
@@ -86,6 +88,7 @@ src/renderer/      React UI: pages, components, helpers
 src/shared/        types shared with the backend responses
 src-tauri/src/     Rust backend, one file per feature
 src-tauri/icons/   app icons
+scripts/           release script
 docs/              README images
 ```
 
