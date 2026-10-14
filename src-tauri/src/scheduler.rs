@@ -30,7 +30,6 @@ pub fn is_due(s: &Schedule, now: DateTime<Local>) -> bool {
     if s.last_run == 0 {
         return true;
     }
-    // compare with today's slot, not the last run, so late runs don't drift
     (today_at.timestamp_millis() as u64).saturating_sub(s.last_run) >= period_ms(&s.frequency).saturating_sub(3_600_000)
 }
 

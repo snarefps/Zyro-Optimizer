@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ScanItem } from '../../shared/types'
 import { zy } from '../api'
-import { Badge, Button, Card, Empty, Modal, PageHeader, RiskBadge, ScanBar, Skeleton, Toggle, useLoad, useToast } from '../components/ui'
+import { Badge, Button, Card, Empty, Modal, PageHeader, Pivot, RiskBadge, ScanBar, Loading, Toggle, useLoad, useToast } from '../components/ui'
 import { applyEach } from '../lib/actions'
 import { runTask } from '../lib/tasks'
 
@@ -54,33 +54,33 @@ export function Startup() {
         actions={<Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Rescan</Button>}
       />
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3.5 py-1.5 text-[13px] font-medium transition ${tab === t ? 'bg-accent/[0.13] text-fg' : 'text-soft hover:bg-hover/5'}`}>{t}</button>
-        ))}
+        <Pivot value={tab} onChange={setTab} options={TABS.map((t) => ({ value: t, label: t }))} />
         <input type="text" placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} className="ml-2 w-52" />
-        <span className="ml-auto text-[13px] text-mute">{enabledCount} enabled</span>
-        <Button disabled={highTargets.length === 0} onClick={() => setBulk(true)}>Disable {highTargets.length} high-impact</Button>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-[14px] text-mute">{enabledCount} enabled</span>
+          <Button disabled={highTargets.length === 0} onClick={() => setBulk(true)}>Disable {highTargets.length} high-impact</Button>
+        </div>
       </div>
       <Card className="min-h-0 flex-1 overflow-auto">
         <ScanBar active={loading} />
-        {error ? <div className="p-6 text-bad">{error}</div> : loading && !data ? <Skeleton rows={8} /> : items.length === 0 ? <Empty title="Nothing here" hint="No startup items in this category." /> : items.map((i, n) => (
-          <div key={i.id} style={{ animationDelay: `${Math.min(n, 14) * 20}ms` }} className={`fade-up flex items-center gap-3 border-b border-line/60 px-4 py-3 transition-opacity ${i.meta?.enabled ? '' : 'opacity-55'}`}>
-            <Toggle on={!!i.meta?.enabled} busy={pending.has(i.id)} disabled={i.needsAdmin} onChange={(v) => set(i, v)} />
+        {error ? <div className="p-6 text-bad">{error}</div> : loading && !data ? <Loading /> : items.length === 0 ? <Empty title="Nothing here" hint="No startup items in this category." /> : items.map((i, n) => (
+          <div key={i.id} style={{ animationDelay: `${Math.min(n, 14) * 20}ms` }} className={`fade-up flex items-center gap-3 border-b border-line px-4 py-3 transition-opacity ${i.meta?.enabled ? '' : 'opacity-60'}`}>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="truncate font-medium">{i.label}</span>
+                <span className="truncate">{i.label}</span>
                 <Badge>{String(i.meta?.kind)}</Badge>
-                {!!i.meta?.essential && <Badge tone="info" title="Looks like a driver or security component. Better left on.">Recommended on</Badge>}
+                {!!i.meta?.essential && <Badge title="Looks like a driver or security component. Better left on.">Recommended on</Badge>}
               </div>
               <div className="truncate text-[12px] text-mute">{i.detail}</div>
             </div>
-            {i.needsAdmin && <Badge tone="info">Needs admin</Badge>}
+            {i.needsAdmin && <Badge>Needs admin</Badge>}
             <Badge tone={impactTone[i.meta?.impact as 'high']}>{String(i.meta?.impact)} impact</Badge>
             <RiskBadge risk={i.risk} />
+            <Toggle on={!!i.meta?.enabled} busy={pending.has(i.id)} disabled={i.needsAdmin} onChange={(v) => set(i, v)} />
           </div>
         ))}
       </Card>
-      <Modal open={bulk} icon="rocket" title="Disable high-impact startup items?" onClose={() => setBulk(false)} actions={<><Button variant="ghost" onClick={() => setBulk(false)}>Cancel</Button><Button onClick={disableHigh}>Disable them</Button></>}>
+      <Modal open={bulk} title="Disable high-impact startup items?" onClose={() => setBulk(false)} actions={<><Button variant="ghost" onClick={() => setBulk(false)}>Cancel</Button><Button onClick={disableHigh}>Disable them</Button></>}>
         These apps will no longer start automatically. You can still open them manually, and you can turn them back on at any time.
         <ul className="mt-3 max-h-48 list-disc overflow-auto pl-5 text-mute">{highTargets.map((i) => <li key={i.id}>{i.label}</li>)}</ul>
       </Modal>

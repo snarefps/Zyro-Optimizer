@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatBytes, zy } from '../api'
 import { Treemap, TreeItem } from '../components/charts'
+import { Button, Card, Empty, Modal, PageHeader, Pivot, ProgressBar, ScanBar, useToast } from '../components/ui'
 import { Icon } from '../components/Icon'
-import { Button, Card, Empty, Modal, PageHeader, ProgressBar, ScanBar, useToast } from '../components/ui'
 import { runTask } from '../lib/tasks'
 
 type Tab = 'map' | 'large' | 'dups'
@@ -42,7 +42,6 @@ export function Disk() {
     try { const m = await zy.disk.analyze(p); setPath(m.path); setMap(m) } catch (e: any) { toast('err', String(e.message ?? e)) }
     setMapBusy(false)
   }
-  // start in the profile folder, scanning the whole drive takes too long
   useEffect(() => { analyze('~') }, [])
 
   const up = () => {
@@ -108,25 +107,23 @@ export function Disk() {
           const pct = ((d.total - d.free) / d.total) * 100
           return (
             <button key={d.letter} onClick={() => { setTab('map'); analyze(`${d.letter}:\\`) }} className="text-left">
-              <Card lift className={`p-3 ${path.startsWith(d.letter) ? 'border-accent/50' : ''}`}>
-                <div className="flex items-center justify-between text-[13px]"><span className="flex items-center gap-2 font-semibold"><Icon name="ssd" size={20} />{d.letter}:</span><span className="text-mute">{formatBytes(d.free)} free</span></div>
-                <div className="my-2"><ProgressBar value={pct} tone={pct > 90 ? 'bad' : pct > 80 ? 'warn' : 'accent'} /></div>
-                <div className="text-[11px] text-mute">{formatBytes(d.total - d.free)} of {formatBytes(d.total)}</div>
+              <Card lift className={`p-3 ${path.startsWith(d.letter) ? '!border-accent' : ''}`}>
+                <div className="flex items-center justify-between text-[14px]"><span className="flex items-center gap-2"><Icon name="ssd" size={20} />{d.letter}:</span><span className="text-[12px] text-mute">{formatBytes(d.free)} free</span></div>
+                <div className="my-2.5"><ProgressBar value={pct} /></div>
+                <div className="text-[12px] text-mute">{formatBytes(d.total - d.free)} of {formatBytes(d.total)}</div>
               </Card>
             </button>
           )
         })}
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {([['map', 'Space map', 'pie-chart'], ['large', 'Large files', 'database'], ['dups', 'Duplicates', 'folder-tree']] as [Tab, string, string][]).map(([t, l, ic]) => (
-          <button key={t} onClick={() => setTab(t)} className={`flex items-center gap-2 rounded-md px-3.5 py-2 text-[13px] font-medium transition ${tab === t ? 'bg-accent/[0.13] text-fg' : 'text-soft hover:bg-hover/5'}`}>{ic !== 'pie-chart' ? <Icon name={ic} size={20} /> : <Icon name="hdd" size={20} />}{l}</button>
-        ))}
+        <Pivot<Tab> value={tab} onChange={setTab} options={[{ value: 'map', label: 'Space map' }, { value: 'large', label: 'Large files' }, { value: 'dups', label: 'Duplicates' }]} />
         {tab !== 'map' && (
           <>
             <Button onClick={tab === 'large' ? scanLarge : scanDups} busy={scanBusy}>{tab === 'large' ? 'Find files over 100 MB' : 'Find duplicates'}</Button>
             {scanBusy ? <><span className="max-w-[220px] truncate text-[12px] text-mute">{progress}</span><Button variant="ghost" onClick={() => zy.disk.cancel()}>Stop</Button></> : <span className="text-[12px] text-mute">Scans your user folder</span>}
             <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
-              <span className="text-[13px] text-mute">{picked.size} selected · {formatBytes(pickedSize)}</span>
+              <span className="text-[14px] text-mute">{picked.size} selected · {formatBytes(pickedSize)}</span>
               <Button variant="danger" icon="recycle-bin" disabled={picked.size === 0} onClick={() => setConfirm(true)}>Move to Recycle Bin</Button>
             </div>
           </>
@@ -138,9 +135,9 @@ export function Disk() {
         <div className="p-4">
           {tab === 'map' && (
             <div ref={box}>
-              <div className="mb-3 flex items-center gap-2 text-[13px]">
+              <div className="mb-3 flex items-center gap-2 text-[14px]">
                 <Button variant="ghost" onClick={up} disabled={path.replace(/\\$/, '').split('\\').length <= 1}>↑ Up</Button>
-                <span className="font-mono text-soft">{path || '...'}</span>
+                <span className="text-soft">{path || '...'}</span>
                 {map && <span className="ml-auto text-mute">{formatBytes(map.total)}{map.partial ? ' (partial: some folders took too long)' : ''}</span>}
               </div>
               {map && map.children.length > 0 ? (
@@ -150,15 +147,15 @@ export function Disk() {
             </div>
           )}
           {tab === 'large' && (large === null ? <Empty title="Find your biggest files" hint="Scans your user folder for files over 100 MB." icon="database" /> : large.length === 0 ? <Empty title="No large files found" /> : large.map((f, n) => (
-            <label key={f.path} style={{ animationDelay: `${Math.min(n, 14) * 18}ms` }} className="fade-up flex cursor-pointer items-center gap-3 border-b border-line/60 py-2 transition-colors hover:bg-hover/[0.04]">
+            <label key={f.path} style={{ animationDelay: `${Math.min(n, 14) * 18}ms` }} className="fade-up flex cursor-pointer items-center gap-3 border-b border-line py-2 transition-colors duration-[83ms] hover:bg-hover/[0.04]">
               <input type="checkbox" checked={picked.has(f.path)} onChange={() => toggle(f.path)} />
               <span className="min-w-0 flex-1 truncate" title={f.path}>{f.path}</span>
-              <button className="text-[12px] text-accent hover:underline" onClick={(e) => { e.preventDefault(); zy.disk.reveal(f.path) }}>Show</button>
+              <button className="link rounded px-2 py-0.5 text-[12px]" onClick={(e) => { e.preventDefault(); zy.disk.reveal(f.path) }}>Show</button>
               <span className="w-24 text-right tabular-nums text-soft">{formatBytes(f.size)}</span>
             </label>
           )))}
           {tab === 'dups' && (dups === null ? <Empty title="Find duplicate files" hint="Compares files by content (not just name), so only true copies are listed. Tick the extra copies to remove and keep one." icon="folder-tree" /> : dups.length === 0 ? <Empty title="No duplicates found" /> : dups.map((g) => (
-            <div key={g.hash} className="fade-up mb-3 rounded-md border border-line/70 p-3">
+            <div key={g.hash} className="fade-up mb-3 rounded-lg border border-line p-3">
               <div className="mb-1 text-[12px] text-mute">{g.files.length} copies · {formatBytes(g.size)} each · wasting {formatBytes(g.size * (g.files.length - 1))}</div>
               {g.files.map((f) => (
                 <label key={f} className="flex cursor-pointer items-center gap-3 py-1">
@@ -171,9 +168,9 @@ export function Disk() {
         </div>
       </Card>
 
-      <Modal open={confirm} icon="recycle-bin" title="Move to Recycle Bin?" onClose={() => setConfirm(false)} actions={<><Button variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button><Button variant="danger" onClick={trash}>Move {picked.size} file(s)</Button></>}>
+      <Modal open={confirm} title="Move to Recycle Bin?" onClose={() => setConfirm(false)} actions={<><Button variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button><Button variant="danger" onClick={trash}>Move {picked.size} file(s)</Button></>}>
         {formatBytes(pickedSize)} will move to the Recycle Bin. You can restore them from there until you empty it.
-        {tab === 'dups' && dups?.some((g) => g.files.every((f) => picked.has(f))) && <div className="mt-3 rounded-lg border border-warn/30 bg-warn/10 p-3 text-warn">Warning: you ticked every copy of at least one file. Untick one copy per group to keep it.</div>}
+        {tab === 'dups' && dups?.some((g) => g.files.every((f) => picked.has(f))) && <div className="mt-3 rounded-lg border border-line bg-hover/[0.04] p-3 text-fg">Warning: you ticked every copy of at least one file. Untick one copy per group to keep it.</div>}
       </Modal>
     </>
   )

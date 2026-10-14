@@ -9,7 +9,6 @@ export function usePresence(open: boolean, exitMs = 167) {
     setClosing(true)
     const t = setTimeout(() => { setMounted(false); setClosing(false) }, exitMs)
     return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
   return { mounted: mounted || open, closing: closing && !open }
 }

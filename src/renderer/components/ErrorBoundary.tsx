@@ -17,9 +17,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: s
     if (!this.state.error) return this.props.children
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <Icon name="error" size={64} className="mb-3" />
-        <div className="text-lg font-bold">This page hit a problem</div>
-        <div className="mt-1 max-w-md text-[13px] text-mute">{this.state.error.message}</div>
+        <Icon name="error" size={64} className="mb-3 text-mute" />
+        <div className="text-[20px] font-semibold">This page hit a problem</div>
+        <div className="mt-1 max-w-md text-[14px] text-mute">{this.state.error.message}</div>
         <Button className="mt-5" onClick={() => this.setState({ error: null })}>Try again</Button>
       </div>
     )

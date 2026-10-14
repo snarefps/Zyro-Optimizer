@@ -1,19 +1,16 @@
 import { useState } from 'react'
 import type { ScanItem } from '../../shared/types'
 import { zy } from '../api'
-import { Badge, Button, Card, Empty, PageHeader, ScanBar, Skeleton, useLoad } from '../components/ui'
+import { Badge, Button, Card, Empty, PageHeader, Pivot, ScanBar, Loading, useLoad } from '../components/ui'
 import { ScanList } from '../components/ScanList'
-import { Icon } from '../components/Icon'
 
 export function Updates() {
   const [tab, setTab] = useState<'apps' | 'drivers'>('apps')
   return (
     <>
       <PageHeader title="Updates & Drivers" subtitle="Keep apps current with winget, and review driver ages. Outdated apps are a common source of bugs and security holes." />
-      <div className="mb-3 flex gap-1.5">
-        {([['apps', 'App updates', 'software-installer'], ['drivers', 'Drivers', 'processor']] as const).map(([t, l, ic]) => (
-          <button key={t} onClick={() => setTab(t)} className={`flex items-center gap-2 rounded-md px-3.5 py-2 text-[13px] font-medium transition ${tab === t ? 'bg-accent/[0.13] text-fg' : 'text-soft hover:bg-hover/5'}`}><Icon name={ic} size={20} />{l}</button>
-        ))}
+      <div className="mb-3">
+        <Pivot value={tab} onChange={setTab} options={[{ value: 'apps', label: 'App updates' }, { value: 'drivers', label: 'Drivers' }]} />
       </div>
       {tab === 'apps' ? (
         <ScanList
@@ -23,8 +20,9 @@ export function Updates() {
           task={{ title: 'Updating apps', icon: 'available-updates', verb: 'Updating', page: 'updates' }}
           showSize={false}
           search
+          progressChannel="update:progress"
           preselect={() => true}
-          confirmText="The selected apps will be updated silently by winget. Updates run one at a time and can take a few minutes. Close the apps first so they can update."
+          confirmText="The selected apps will be updated silently by winget, one at a time. Zyro reads the version back afterwards, so an update that did not really happen is reported as failed. Each update can be undone from Restore & History, which reinstalls the previous version. Close the apps first so they can update."
           emptyTitle="Everything is up to date"
           emptyHint="winget did not report any newer versions of your installed apps."
           loadingHint="Asking winget for updates. This can take up to a minute."
@@ -43,14 +41,14 @@ function Drivers() {
       <div className="flex items-center gap-3">
         <Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Rescan</Button>
         <Button icon="available-updates" onClick={() => zy.updates.openWindowsUpdate()}>Check Windows Update for drivers</Button>
-        <span className="ml-auto text-[13px] text-mute">{old} driver(s) older than 2 years</span>
+        <span className="ml-auto text-[14px] text-mute">{old} driver(s) older than 2 years</span>
       </div>
       <Card className="min-h-0 flex-1 overflow-auto">
         <ScanBar active={loading} />
-        {error ? <div className="p-6 text-bad">{error}</div> : loading && !data ? <Skeleton /> : !data?.length ? <Empty title="No drivers listed" /> : data.map((d, n) => (
-          <div key={d.id} style={{ animationDelay: `${Math.min(n, 14) * 22}ms` }} className="fade-up flex items-center gap-3 border-b border-line/60 px-4 py-2.5">
+        {error ? <div className="p-6 text-bad">{error}</div> : loading && !data ? <Loading /> : !data?.length ? <Empty title="No drivers listed" /> : data.map((d, n) => (
+          <div key={d.id} style={{ animationDelay: `${Math.min(n, 14) * 22}ms` }} className="fade-up flex items-center gap-3 border-b border-line px-4 py-2.5">
             <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">{d.label}</div>
+              <div className="truncate">{d.label}</div>
               <div className="truncate text-[12px] text-mute">{d.detail}</div>
             </div>
             <Badge>{String(d.meta?.deviceClass)}</Badge>

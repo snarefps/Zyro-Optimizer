@@ -18,8 +18,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/darkmode.jpg" alt="Zyro Optimizer in dark mode" width="49%">
-  <img src="docs/screenshots/lightmode.jpg" alt="Zyro Optimizer in light mode" width="49%">
+  <img src="docs/screenshots/darkmode.png" alt="Zyro Optimizer in dark mode" width="49%">
+  <img src="docs/screenshots/lightmode.png" alt="Zyro Optimizer in light mode" width="49%">
 </p>
 
 ## Download
@@ -46,9 +46,9 @@ Older versions, release notes and SHA-256 checksums are on the [Releases page](h
 | --- | --- |
 | **Clean** | Junk cleaner (temp files, update cache, prefetch, thumbnails, crash dumps, Recycle Bin, browser caches), disk analyzer with space map, large-file and duplicate finder, uninstaller with leftover scan |
 | **Speed up** | Startup manager (entries, services, scheduled tasks), game booster that restores everything when you stop, process list with RAM trimmer |
-| **Tune** | 24 reversible tweaks (privacy, performance, gaming, network, Windows 11), debloater for preinstalled apps, app updates through winget, driver age check, **DNS changer** with Google, Cloudflare, Shecan and Iranian gaming DNS (Radar Game, Electro, 403, Begzar) |
+| **Tune** | 24 reversible tweaks (privacy, performance, gaming, network, Windows 11), debloater for preinstalled apps, app updates through winget that are verified afterwards and can be rolled back, driver age check, **Install Apps** (browsers, download managers, players, utilities, runtimes through winget), **DNS changer** with Google, Cloudflare, Shecan and Iranian gaming DNS (Radar Game, Electro, 403, Begzar) |
 | **Automate** | Scheduled cleaning from the tray, history page with one-click undo |
-| **Interface** | Action Center with live progress for every job, Ctrl+K command palette, dark (true black), light and system themes |
+| **Interface** | Windows 11 Settings style interface, Action Center with live progress for every job, Ctrl+K command palette, dark, light and system themes, update check |
 
 ## Safety
 

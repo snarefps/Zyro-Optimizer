@@ -15,7 +15,6 @@ struct Preset {
     note: &'static str,
 }
 
-// addresses come from the providers' public pages and the community lists that mirror them
 const PRESETS: &[Preset] = &[
     Preset { id: "google", name: "Google", group: "Global", servers: ["8.8.8.8", "8.8.4.4"], gaming: false, note: "Fast and reliable everywhere" },
     Preset { id: "cloudflare", name: "Cloudflare", group: "Global", servers: ["1.1.1.1", "1.0.0.1"], gaming: false, note: "Privacy focused and very low latency" },
@@ -102,7 +101,6 @@ fn first_line(e: &str) -> String {
     e.lines().find(|l| !l.trim().is_empty()).unwrap_or("Failed").trim().chars().take(200).collect()
 }
 
-// remembers what the adapter had so the history page can put it back
 fn remember(adapter: &Adapter, label: &str) {
     ctx().log_add("dns", label, "dns", Some(json!({ "adapter": adapter.name, "old": adapter.dns, "wasStatic": adapter.is_static })));
 }
@@ -155,7 +153,6 @@ pub fn revert(entry: &UndoEntry) -> Res<()> {
     }
 }
 
-// one A query for example.com, enough to time how fast a resolver answers
 fn query_packet() -> Vec<u8> {
     let mut p = vec![0x5a, 0x59, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
     for part in ["example", "com"] {
@@ -235,7 +232,6 @@ mod tests {
         assert_eq!(&p[p.len() - 4..], &[0, 1, 0, 1]);
     }
 
-    // needs internet, run with: cargo test -- --ignored
     #[test]
     #[ignore]
     fn times_a_real_resolver() {

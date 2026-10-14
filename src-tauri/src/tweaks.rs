@@ -131,7 +131,6 @@ pub fn catalog() -> Vec<Tweak> {
 fn is_op_applied(op: &Op) -> bool {
     match op {
         Op::Reg { key, name, value, .. } => registry::read(key, name).map(|c| c.same(value)).unwrap_or(false),
-        // a missing service counts as already off
         Op::Service { name, startup } => service_start(name).map(|s| s == *startup).unwrap_or(true),
         Op::Power { ultimate } => {
             let want = if *ultimate { "ultimate performance" } else { "high performance" };
@@ -206,7 +205,6 @@ fn apply_one(t: &Tweak) -> Res<()> {
             Op::Power { .. } => undo.power = active_power().map(|(g, _)| g),
         }
     }
-    // log first so a failure half way through can still be undone
     let entry = ctx().log_add("tweaks", &format!("Applied: {}", t.label), "registry", Some(serde_json::to_value(&undo).map_err(|e| e.to_string())?));
     let run = || -> Res<()> {
         for op in &t.ops {

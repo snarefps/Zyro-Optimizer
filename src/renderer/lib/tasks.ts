@@ -21,7 +21,6 @@ function load(): Task[] {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return []
-    // a task that was running when the app closed can never finish
     return (JSON.parse(raw) as Task[]).filter((t) => t.status !== 'running').slice(0, MAX)
   } catch { return [] }
 }
@@ -33,7 +32,7 @@ const listeners = new Set<() => void>()
 
 function commit() {
   snapshot = [...tasks]
-  try { localStorage.setItem(KEY, JSON.stringify(snapshot.filter((t) => t.status !== 'running').slice(0, 30))) } catch { /* ignore */ }
+  try { localStorage.setItem(KEY, JSON.stringify(snapshot.filter((t) => t.status !== 'running').slice(0, 30))) } catch {}
   listeners.forEach((l) => l())
 }
 

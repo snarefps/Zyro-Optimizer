@@ -82,7 +82,6 @@ pub fn scan() -> Res<Value> {
     for p in &pkgs {
         let name = str_field(p, "Name");
         let Some(b) = match_bloat(&name) else { continue };
-        // wildcard matches can be apps the user installed on purpose, so never call them "safe"
         let wild = b.pattern.contains('*');
         let risk = if wild && b.risk == Risk::Safe { Risk::Low } else { b.risk };
         let (label, detail) = if wild {
@@ -105,15 +104,17 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
             out.push(ItemResult::skipped(&id, "Not on the removable list"));
             continue;
         };
-        ctx().log_add(
-            "debloat",
-            &format!("Removed app: {}", b.label),
-            "appx",
-            Some(json!({ "name": str_field(pkg, "Name"), "location": pkg.get("InstallLocation").cloned().unwrap_or(Value::Null) })),
-        );
         let script = format!("{}Remove-AppxPackage -Package $a.full", ps_arg(&json!({ "full": id })));
         out.push(match run_ps_timeout(&script, Duration::from_secs(180)) {
-            Ok(_) => ItemResult::ok(&id),
+            Ok(_) => {
+                ctx().log_add(
+                    "debloat",
+                    &format!("Removed app: {}", b.label),
+                    "appx",
+                    Some(json!({ "name": str_field(pkg, "Name"), "location": pkg.get("InstallLocation").cloned().unwrap_or(Value::Null) })),
+                );
+                ItemResult::ok(&id)
+            }
             Err(e) => ItemResult::failed(&id, e),
         });
     }

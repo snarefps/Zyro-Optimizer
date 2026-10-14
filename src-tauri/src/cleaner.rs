@@ -126,7 +126,6 @@ fn recycle_size() -> u64 {
 }
 
 fn recycle_empty() -> bool {
-    // no confirm, no progress ui, no sound
     unsafe { SHEmptyRecycleBinW(null_mut(), null(), 7) >= 0 }
 }
 
@@ -212,6 +211,35 @@ pub fn apply_ids(ids: &[String], source: &str) -> Vec<ItemResult> {
         ctx().log_add("cleaner", &format!("{source}: freed {}", format_bytes(total)), "none", None);
     }
     results
+}
+
+pub fn details(id: &str) -> Res<serde_json::Value> {
+    let all = targets();
+    let t = all.iter().find(|x| x.id == id).ok_or("Unknown target")?;
+    if t.recycle_bin {
+        return Ok(json!({ "items": [], "total": 0, "note": "Windows does not list what is in the Recycle Bin here." }));
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(6);
+    let mut rows: Vec<(String, String, u64, bool)> = vec![];
+    for d in expand_dirs(t) {
+        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        for e in rd.filter_map(|e| e.ok()) {
+            let path = e.path();
+            let is_dir = std::fs::symlink_metadata(&path).map(|m| m.is_dir() && !m.file_type().is_symlink()).unwrap_or(false);
+            let size = crate::fsx::dir_size_until(&path, Some(deadline));
+            rows.push((e.file_name().to_string_lossy().into_owned(), path.to_string_lossy().into_owned(), size, is_dir));
+        }
+    }
+    for f in &t.files {
+        if let Ok(m) = std::fs::metadata(f) {
+            rows.push((f.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), f.to_string_lossy().into_owned(), m.len(), false));
+        }
+    }
+    rows.retain(|r| !is_protected_path(&r.1));
+    rows.sort_by(|a, b| b.2.cmp(&a.2));
+    let total = rows.len();
+    let items: Vec<_> = rows.into_iter().take(40).map(|(name, path, size, is_dir)| json!({ "name": name, "path": path, "size": size, "isDir": is_dir })).collect();
+    Ok(json!({ "items": items, "total": total }))
 }
 
 pub fn scan() -> Res<serde_json::Value> {

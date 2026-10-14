@@ -15,7 +15,6 @@ fn friendly_restore_error(raw: &str) -> String {
     }
 }
 
-// windows allows one restore point a day; lift the limit for this call and put it back after
 fn create_restore_point_raw(description: &str) -> Result<(), String> {
     if !is_admin() {
         return Err("Needs administrator rights".into());
@@ -72,7 +71,6 @@ pub fn list_restore_points() -> Res<Value> {
     }
 }
 
-// srclient.dll has no PowerShell cmdlet, so call SRRemoveRestorePoint directly
 fn remove_restore_point(seq: u32) -> Result<(), String> {
     use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
     let name: Vec<u16> = "srclient.dll\0".encode_utf16().collect();
@@ -113,7 +111,6 @@ pub fn open_system_restore() -> Res<Value> {
     Ok(Value::Null)
 }
 
-// only fixed addresses, the UI can not ask for an arbitrary one
 fn open_url(url: &str) -> Res<Value> {
     std::process::Command::new("rundll32.exe").args(["url.dll,FileProtocolHandler", url]).spawn().map_err(|e| e.to_string())?;
     Ok(Value::Null)
@@ -127,7 +124,44 @@ pub fn open_github() -> Res<Value> {
     open_url("https://github.com/snarefps/Zyro-Optimizer")
 }
 
-// the new copy gets our pid and waits for us to exit, otherwise the single-instance check kills it
+pub fn open_releases() -> Res<Value> {
+    open_url("https://github.com/snarefps/Zyro-Optimizer/releases/latest")
+}
+
+fn version_parts(v: &str) -> Vec<u64> {
+    v.trim().trim_start_matches(['v', 'V']).split(['.', '-', '+']).map_while(|p| p.parse::<u64>().ok()).collect()
+}
+
+fn is_newer(latest: &str, current: &str) -> bool {
+    let (a, b) = (version_parts(latest), version_parts(current));
+    for i in 0..a.len().max(b.len()) {
+        let (x, y) = (a.get(i).copied().unwrap_or(0), b.get(i).copied().unwrap_or(0));
+        if x != y {
+            return x > y;
+        }
+    }
+    false
+}
+
+pub fn check_update() -> Res<Value> {
+    let current = env!("CARGO_PKG_VERSION");
+    let script = "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;        $r = Invoke-RestMethod -Uri 'https://api.github.com/repos/snarefps/Zyro-Optimizer/releases/latest' -Headers @{ 'User-Agent'='ZyroOptimizer'; 'Accept'='application/vnd.github+json' } -TimeoutSec 15;        @{ tag = [string]$r.tag_name; notes = [string]$r.body; published = [string]$r.published_at } | ConvertTo-Json -Compress";
+    let out = crate::util::run_ps_timeout(script, std::time::Duration::from_secs(25)).map_err(|e| format!("The update server could not be reached ({e})"))?;
+    let v: Value = serde_json::from_str(out.trim()).map_err(|_| "The update answer could not be read".to_string())?;
+    let tag = crate::util::str_field(&v, "tag");
+    if tag.is_empty() {
+        return Err("No release has been published yet".into());
+    }
+    let notes: String = crate::util::str_field(&v, "notes").chars().take(1200).collect();
+    Ok(json!({
+        "current": current,
+        "latest": tag.trim_start_matches(['v', 'V']),
+        "available": is_newer(&tag, current),
+        "notes": notes,
+        "published": crate::util::str_field(&v, "published"),
+    }))
+}
+
 pub fn relaunch_as_admin() -> Res<Value> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let mut args: Vec<String> = std::env::args().skip(1).filter(|a| a != "--wait-pid").map(|a| format!("\"{a}\"")).collect();
@@ -182,6 +216,7 @@ pub fn history_revert(id: String) -> Res<Value> {
         "startup" => crate::startup::revert(&entry),
         "appx" => crate::debloat::revert(&entry),
         "dns" => crate::dns::revert(&entry),
+        "appver" => crate::updates::revert(&entry),
         _ => Err("This action cannot be undone automatically".to_string()),
     };
     Ok(match r {
@@ -195,6 +230,15 @@ pub fn history_revert(id: String) -> Res<Value> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn compares_versions_numerically() {
+        assert!(super::is_newer("v1.3.0", "1.2.0"));
+        assert!(super::is_newer("1.2.10", "1.2.9"));
+        assert!(!super::is_newer("1.2.0", "1.2.0"));
+        assert!(!super::is_newer("1.1.9", "1.2.0"));
+        assert!(super::is_newer("1.2.0.1", "1.2.0"));
+    }
+
     use super::*;
 
     #[test]

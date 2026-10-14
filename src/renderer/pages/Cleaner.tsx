@@ -10,10 +10,11 @@ export function Cleaner() {
       <ScanList
         load={() => zy.cleaner.scan()}
         apply={(ids) => zy.cleaner.apply(ids)}
+        details={(id) => zy.cleaner.details(id)}
         applyLabel="Clean selected"
         task={{ title: 'Junk cleaning', icon: 'broom', verb: 'Cleaning', page: 'cleaner' }}
         groupBy={(i) => String(i.meta?.group ?? '')}
-        preselect={(i) => i.risk !== 'medium' && i.risk !== 'high'}
+        preselect={(i) => i.risk !== 'medium' && i.risk !== 'high' && i.id !== 'recycle-bin'}
         emptyTitle="Your PC is already clean"
         emptyHint="No removable junk was found. Items marked 'Needs admin' appear once you restart Zyro as administrator."
         summarize={(r) => `Freed ${formatBytes(sumFreed(r))}`}

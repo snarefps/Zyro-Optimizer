@@ -15,8 +15,8 @@ $keys = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Sof
 Get-ItemProperty $keys -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -and -not $_.SystemComponent -and -not $_.ParentKeyName -and $_.UninstallString } | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, EstimatedSize, UninstallString, InstallLocation, PSChildName
 "#;
 
-// commands come from the registry, never from the ui
 static COMMANDS: Mutex<Option<HashMap<String, (String, String)>>> = Mutex::new(None);
+static OFFERED: Mutex<Option<HashSet<String>>> = Mutex::new(None);
 
 pub fn scan_items() -> Res<Vec<ScanItem>> {
     let raw = run_ps_json(SCRIPT, Duration::from_secs(60))?;
@@ -119,6 +119,7 @@ pub fn leftovers(app_name: String) -> Res<Value> {
             items.push(ScanItem::new(label.clone(), label, Risk::Medium).detail("Possible leftover folder").size(dir_size(&full)));
         }
     }
+    *OFFERED.lock().unwrap_or_else(|e| e.into_inner()) = Some(items.iter().map(|i| i.id.to_lowercase()).collect());
     to_value(items)
 }
 
@@ -130,7 +131,8 @@ pub fn remove_leftovers(paths: Vec<String>) -> Res<Value> {
         let path = PathBuf::from(&p);
         let parent = path.parent().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
         let name = path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
-        if !roots.contains(&parent) || RESERVED.contains(&name.as_str()) {
+        let offered = OFFERED.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_some_and(|o| o.contains(&p.to_lowercase()));
+        if !offered || !roots.contains(&parent) || RESERVED.contains(&name.as_str()) {
             out.push(ItemResult::skipped(&p, "Not a removable leftover location"));
             continue;
         }

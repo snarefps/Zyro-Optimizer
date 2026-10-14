@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use windows_sys::core::BOOL;
 use windows_sys::Win32::Foundation::{CloseHandle, HWND, LPARAM};
 use windows_sys::Win32::System::ProcessStatus::K32EmptyWorkingSet;
@@ -73,31 +73,27 @@ fn clean_name(n: &str) -> String {
     n.strip_suffix(".exe").or_else(|| n.strip_suffix(".EXE")).unwrap_or(n).to_string()
 }
 
+fn is_ours(sys: &System, mut pid: u32) -> bool {
+    let me = std::process::id();
+    for _ in 0..8 {
+        if pid == me {
+            return true;
+        }
+        match sys.process(Pid::from_u32(pid)).and_then(|p| p.parent()) {
+            Some(parent) => pid = parent.as_u32(),
+            None => return false,
+        }
+    }
+    false
+}
+
 pub fn snapshot() -> Vec<ProcInfo> {
     let titles = window_titles();
     let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1) as f32;
     let mut guard = SYS.lock().unwrap_or_else(|e| e.into_inner());
     let sys = guard.get_or_insert_with(System::new);
     refresh(sys);
-    let me = std::process::id();
-    // our own webview processes are protected too
-    let parents: HashMap<u32, u32> = sys
-        .processes()
-        .values()
-        .filter_map(|p| p.parent().map(|pp| (p.pid().as_u32(), pp.as_u32())))
-        .collect();
-    let is_ours = |mut pid: u32| {
-        for _ in 0..8 {
-            if pid == me {
-                return true;
-            }
-            match parents.get(&pid) {
-                Some(&pp) => pid = pp,
-                None => return false,
-            }
-        }
-        false
-    };
+    let sys = &*sys;
     let mut out: Vec<ProcInfo> = sys
         .processes()
         .values()
@@ -107,7 +103,7 @@ pub fn snapshot() -> Vec<ProcInfo> {
             let title = titles.get(&pid).cloned().unwrap_or_default();
             ProcInfo {
                 pid,
-                protected: is_critical(&name) || is_ours(pid),
+                protected: is_critical(&name) || is_ours(sys, pid),
                 name,
                 mem_bytes: p.memory(),
                 cpu_pct: (p.cpu_usage() / cores * 10.0).round() / 10.0,
@@ -136,7 +132,7 @@ pub fn kill(pid: u32) -> Res<Value> {
     if is_critical(&name) {
         return Ok(json!({ "ok": false, "reason": format!("{name} is a protected system process") }));
     }
-    if pid == std::process::id() {
+    if is_ours(sys, pid) {
         return Ok(json!({ "ok": false, "reason": "Cannot close Zyro itself" }));
     }
     Ok(if p.kill() { json!({ "ok": true }) } else { json!({ "ok": false, "reason": "Access denied. Try running Zyro as administrator." }) })

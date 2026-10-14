@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import type { ScanItem } from '../../shared/types'
 import { zy } from '../api'
-import { Icon } from '../components/Icon'
-import { Badge, Button, Card, PageHeader, RiskBadge, ScanBar, Skeleton, Toggle, useLoad, useToast } from '../components/ui'
+import { Badge, Button, Card, PageHeader, RiskBadge, ScanBar, SectionTitle, Setting, Loading, Toggle, useLoad, useToast } from '../components/ui'
 import { applyEach } from '../lib/actions'
 import { createRestorePoint } from '../lib/restore'
 import { runTask } from '../lib/tasks'
@@ -82,41 +81,35 @@ export function Tweaks() {
         subtitle="Privacy, performance, gaming, network and Windows 11 settings. Each switch records the previous value, so turning it off restores exactly what you had."
         actions={<><Button variant="ghost" icon="restore-page" onClick={restorePoint} busy={rpBusy} title="Create a Windows restore point you can go back to">Restore point</Button><Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Refresh</Button><Button icon="sparkling" onClick={applyRecommended} busy={bulkBusy}>Apply recommended</Button></>}
       />
-      <div className="min-h-0 flex-1 space-y-5 overflow-auto pr-1">
+      <div className="min-h-0 flex-1 overflow-auto pb-2 pr-1">
         <ScanBar active={loading} />
-        {error ? <Card className="p-6 text-bad">{error}</Card> : loading && !data ? <Skeleton rows={8} /> : CATEGORIES.map((cat) => (
+        {error ? <Card className="p-6 text-bad">{error}</Card> : loading && !data ? <Loading /> : CATEGORIES.map((cat, ci) => (
           <section key={cat.name}>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-mute"><Icon name={cat.icon} size={20} />{cat.name}</div>
-            <Card>
+            <SectionTitle icon={cat.icon} className={ci === 0 ? '!mt-0' : ''}>{cat.name}</SectionTitle>
+            <div className="space-y-1">
               {(data ?? []).filter((i) => i.meta?.category === cat.name).map((i, n) => (
-                <div key={i.id} style={{ animationDelay: `${n * 25}ms` }} className="fade-up flex items-center gap-4 border-b border-line/60 px-4 py-3 last:border-0">
-                  <Toggle on={!!i.meta?.applied} busy={pending.has(i.id)} disabled={i.needsAdmin} onChange={(v) => setTweak(i, v)} />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium">{i.label}</div>
-                    <div className="text-[12px] leading-4 text-mute">{i.detail}</div>
-                  </div>
-                  {i.needsAdmin && <Badge tone="info">Needs admin</Badge>}
-                  {!!i.meta?.needsRestart && <Badge title="Takes effect after a restart or sign-out">Restart</Badge>}
-                  <RiskBadge risk={i.risk} />
+                <div key={i.id} style={{ animationDelay: `${n * 25}ms` }} className="fade-up">
+                  <Setting title={i.label} description={i.detail} disabled={i.needsAdmin}>
+                    {i.needsAdmin && <Badge title="Restart Zyro as administrator to use this">Needs admin</Badge>}
+                    {!!i.meta?.needsRestart && <Badge title="Takes effect after a restart or sign-out">Restart</Badge>}
+                    <RiskBadge risk={i.risk} />
+                    <Toggle on={!!i.meta?.applied} busy={pending.has(i.id)} disabled={i.needsAdmin} onChange={(v) => setTweak(i, v)} />
+                  </Setting>
                 </div>
               ))}
-            </Card>
+            </div>
           </section>
         ))}
         <section>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-mute"><Icon name="maintenance" size={20} />Maintenance</div>
-          <Card>
+          <SectionTitle icon="maintenance">Maintenance</SectionTitle>
+          <div className="space-y-1">
             {(actions.data ?? []).map((a) => (
-              <div key={a.id} className="flex items-center gap-4 border-b border-line/60 px-4 py-3 last:border-0">
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{a.label}</div>
-                  <div className="text-[12px] text-mute">{a.description}</div>
-                </div>
-                {a.needsAdmin && <Badge tone="info">Needs admin</Badge>}
+              <Setting key={a.id} title={a.label} description={a.description}>
+                {a.needsAdmin && <Badge title="Restart Zyro as administrator to use this">Needs admin</Badge>}
                 <Button variant="soft" disabled={a.needsAdmin} busy={running === a.id} onClick={() => runAction(a.id, a.label)}>Run</Button>
-              </div>
+              </Setting>
             ))}
-          </Card>
+          </div>
         </section>
       </div>
     </>

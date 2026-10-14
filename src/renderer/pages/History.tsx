@@ -2,13 +2,13 @@ import { useState } from 'react'
 import type { UndoEntry } from '../../shared/types'
 import { zy } from '../api'
 import { Icon } from '../components/Icon'
-import { Badge, Button, Card, Empty, PageHeader, ScanBar, Skeleton, useLoad, useToast } from '../components/ui'
+import { Badge, Button, Card, Empty, PageHeader, ScanBar, Loading, useLoad, useToast } from '../components/ui'
 import { createRestorePoint } from '../lib/restore'
 import { runTask } from '../lib/tasks'
 
-const UNDOABLE = new Set(['registry', 'startup', 'appx', 'dns'])
+const UNDOABLE = new Set(['registry', 'startup', 'appx', 'dns', 'appver'])
 const MODULE_ICON: Record<string, string> = {
-  tweaks: 'control-panel', startup: 'rocket', debloat: 'cut', cleaner: 'broom', gamebooster: 'controller', uninstaller: 'package', disk: 'recycle-bin', updates: 'available-updates', dns: 'wifi'
+  tweaks: 'control-panel', startup: 'rocket', debloat: 'cut', cleaner: 'broom', gamebooster: 'controller', uninstaller: 'package', disk: 'recycle-bin', updates: 'available-updates', dns: 'wifi', apps: 'software-installer'
 }
 
 export function History() {
@@ -47,11 +47,11 @@ export function History() {
       />
       <Card className="min-h-0 flex-1 overflow-auto">
         <ScanBar active={loading} />
-        {loading && !data ? <Skeleton /> : !data?.length ? <Empty title="No changes yet" hint="Actions you take will be listed here so you can review or undo them." icon="time-machine" /> : data.map((e, n) => (
-          <div key={e.id} style={{ animationDelay: `${Math.min(n, 14) * 18}ms` }} className="fade-up flex items-center gap-3 border-b border-line/60 px-4 py-3 transition-colors hover:bg-hover/[0.04]">
-            <Icon name={MODULE_ICON[e.module] ?? 'time'} size={28} />
+        {loading && !data ? <Loading /> : !data?.length ? <Empty title="No changes yet" hint="Actions you take will be listed here so you can review or undo them." icon="time-machine" /> : data.map((e, n) => (
+          <div key={e.id} style={{ animationDelay: `${Math.min(n, 14) * 18}ms` }} className="fade-up flex items-center gap-4 border-b border-line px-4 py-3 transition-colors duration-[83ms] hover:bg-hover/[0.04]">
+            <Icon name={MODULE_ICON[e.module] ?? 'time'} size={24} />
             <div className="min-w-0 flex-1">
-              <div className={`truncate font-medium ${e.reverted ? 'text-mute line-through' : ''}`}>{e.label}</div>
+              <div className={`truncate ${e.reverted ? 'text-mute line-through' : ''}`}>{e.label}</div>
               <div className="text-[12px] text-mute">{new Date(e.ts).toLocaleString()} · {e.module}</div>
             </div>
             {e.reverted ? <Badge>Undone</Badge> : UNDOABLE.has(e.kind) ? <Button variant="soft" icon="undo" busy={busy === e.id} onClick={() => revert(e)}>Undo</Button> : <Badge>Not reversible</Badge>}

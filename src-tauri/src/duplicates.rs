@@ -80,7 +80,6 @@ mod tests {
     use std::fs;
 
     fn setup() -> (PathBuf, Vec<(PathBuf, u64)>) {
-        // parallel tests, so each one needs its own folder name
         static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let dir = std::env::temp_dir().join(format!("zyro-dup-{}-{}-{n}", std::process::id(), crate::util::now_ms()));
@@ -92,10 +91,10 @@ mod tests {
             files.push((p, content.len() as u64));
         };
         let a = vec![b'a'; 200_000];
-        let b = vec![b'b'; 200_000]; // same size as a, different content
+        let b = vec![b'b'; 200_000];
         let mut c = vec![b'c'; 100_000];
-        c.push(b'x'); // unique size
-        let mut tail = vec![b'a'; 199_999]; // same size and same first 64 KB as a, differs only at the end
+        c.push(b'x');
+        let mut tail = vec![b'a'; 199_999];
         tail.push(b'Z');
         mk("a1.bin", a.clone());
         mk("a2.bin", a);

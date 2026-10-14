@@ -2,7 +2,7 @@ use crate::ctx::{ctx, is_admin};
 use crate::model::{to_value, ItemResult, Res, Risk, ScanItem};
 use crate::monitor::memory;
 use crate::processes::{self, snapshot};
-use crate::sysutil::{activate_plan, active_power, service_start, set_active_plan, start_service, stop_service};
+use crate::sysutil::{activate_plan, active_power, service_running, service_start, set_active_plan, start_service, stop_service};
 use crate::util::{now_ms, ps_arg, run_ps};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -129,7 +129,7 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
                     if s.stopped_services.iter().any(|x| x == name) {
                         continue;
                     }
-                    if matches!(service_start(name).as_deref(), Some(st) if st != "disabled") {
+                    if matches!(service_start(name).as_deref(), Some(st) if st != "disabled") && service_running(name) {
                         stop_service(name);
                         s.stopped_services.push((*name).to_string());
                     }
@@ -147,7 +147,6 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
                         s.closed.push(Closed { name: name.to_string(), path });
                     }
                 }
-                // apps with a window get a close request, background ones are killed
                 run_ps(&format!(
                     "{}foreach ($p in (Get-Process -Name $a.n -ErrorAction SilentlyContinue)) {{ if ($p.MainWindowHandle -ne 0) {{ [void]$p.CloseMainWindow() }} else {{ Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }} }}",
                     ps_arg(&json!({ "n": name }))

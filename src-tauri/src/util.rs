@@ -95,7 +95,6 @@ pub fn run_ps_json(script: &str, timeout: Duration) -> Res<Vec<Value>> {
     }
 }
 
-// data goes in as base64 json so names and paths can't break out of the script
 pub fn ps_arg(data: &Value) -> String {
     let b64 = base64::engine::general_purpose::STANDARD.encode(data.to_string());
     format!("$a = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{b64}')) | ConvertFrom-Json;")

@@ -1,6 +1,8 @@
 use crate::ctx::ctx;
 use crate::model::{to_value, ItemResult, Res, Risk, ScanItem};
-use crate::util::{run_exe_timeout, run_ps_json, run_raw, str_field};
+use crate::undo::UndoEntry;
+use crate::util::{run_ps_json, run_raw, str_field};
+use crate::winget::{self, Applied, Outcome, Winget};
 use chrono::NaiveDate;
 use regex::Regex;
 use serde_json::{json, Value};
@@ -26,7 +28,6 @@ pub fn parse_winget_upgrade(text: &str) -> Vec<WingetUpgrade> {
     let (Some(id), Some(version), Some(available)) = (col("Id"), col("Version"), col("Available")) else { return vec![] };
     let source = col("Source");
     let stop = Regex::new(r"(?i)upgrades? available|no installed package|following packages").unwrap();
-    // offsets are in chars, not bytes
     let chars = |l: &str| l.chars().collect::<Vec<char>>();
     let slice = |c: &[char], a: usize, b: usize| -> String { c.iter().skip(a).take(b.saturating_sub(a)).collect::<String>().trim().to_string() };
     let hc = chars(header);
@@ -68,7 +69,6 @@ pub fn is_safe_winget_id(id: &str) -> bool {
 }
 
 pub fn scan() -> Res<Value> {
-    // winget exits non-zero when nothing matches but still prints a table
     let (_, stdout, stderr) = run_raw("winget", &["upgrade", "--accept-source-agreements", "--disable-interactivity"], Duration::from_secs(120))?;
     let text = if stdout.trim().is_empty() { stderr } else { stdout };
     let items: Vec<ScanItem> = parse_winget_upgrade(&text)
@@ -82,27 +82,44 @@ pub fn scan() -> Res<Value> {
     to_value(items)
 }
 
+pub fn record(id: &str, name: &str, applied: Applied) -> ItemResult {
+    match applied.outcome {
+        Outcome::Installed { version } => {
+            ctx().log_add("apps", &format!("Installed {name} {version}"), "none", None);
+            ItemResult::ok(id)
+        }
+        Outcome::Updated { from, to, note } => {
+            ctx().log_add("updates", &format!("Updated {name} from {from} to {to}"), "appver", applied.undo);
+            match note {
+                Some(n) => ItemResult::ok_note(id, n),
+                None => ItemResult::ok(id),
+            }
+        }
+        Outcome::UpToDate => ItemResult::skipped(id, "Already up to date"),
+        Outcome::Failed(reason) => ItemResult::failed(id, reason),
+    }
+}
+
 pub fn apply(ids: Vec<String>) -> Res<Value> {
+    let w = Winget::system();
+    w.ready()?;
     let mut out = vec![];
     for id in ids {
         if !is_safe_winget_id(&id) {
             out.push(ItemResult::skipped(&id, "Invalid package id"));
             continue;
         }
-        let r = run_exe_timeout(
-            "winget",
-            &["upgrade", "--id", &id, "--exact", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"],
-            Duration::from_secs(900),
-        );
-        out.push(match r {
-            Ok(_) => {
-                ctx().log_add("updates", &format!("Updated app: {id}"), "none", None);
-                ItemResult::ok(&id)
-            }
-            Err(e) => ItemResult::failed(&id, e.lines().last().unwrap_or("Update failed").to_string()),
-        });
+        let name = winget::installed_row(&w, &id).ok().flatten().map(|r| r.name).filter(|n| !n.is_empty()).unwrap_or_else(|| id.clone());
+        let progress = |step: &str| crate::ctx::emit("update:progress", json!({ "id": id, "message": format!("{name}: {step}") }));
+        let applied = winget::install_or_update(&w, &id, &name, false, &progress);
+        out.push(record(&id, &name, applied));
     }
     to_value(out)
+}
+
+pub fn revert(entry: &UndoEntry) -> Res<()> {
+    let undo = entry.undo.clone().ok_or("Nothing to undo")?;
+    winget::roll_back(&Winget::system(), &undo)
 }
 
 pub fn drivers() -> Res<Value> {

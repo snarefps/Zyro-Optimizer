@@ -158,7 +158,6 @@ fn set_enabled(id: &str, enable: bool) -> Res<Option<String>> {
     let p = parse_id(id);
     match p.src.as_str() {
         "reg" | "fld" => {
-            // same bytes task manager writes: 2 = on, 3 = off
             let key = format!(r"{}\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\{}", p.hive, p.sub);
             let mut b = vec![0u8; 12];
             b[0] = if enable { 2 } else { 3 };
@@ -256,9 +255,9 @@ mod tests {
         let key = r"HKCU\Software\ZyroStartupApprovedTest";
         let _ = registry::delete_key(key);
         registry::write(key, "App", &Raw::binary({ let mut b = vec![0u8; 12]; b[0] = 3; b })).unwrap();
-        assert_eq!(registry::read(key, "App").unwrap().bytes[0] & 1, 1); // disabled
+        assert_eq!(registry::read(key, "App").unwrap().bytes[0] & 1, 1);
         registry::write(key, "App", &Raw::binary({ let mut b = vec![0u8; 12]; b[0] = 2; b })).unwrap();
-        assert_eq!(registry::read(key, "App").unwrap().bytes[0] & 1, 0); // enabled
+        assert_eq!(registry::read(key, "App").unwrap().bytes[0] & 1, 0);
         registry::delete_key(key).unwrap();
     }
 }

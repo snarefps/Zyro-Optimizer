@@ -1,4 +1,3 @@
-
 const PROTECTED_PREFIXES: &[&str] = &[
     "/windows",
     "/program files",
@@ -9,7 +8,6 @@ const PROTECTED_PREFIXES: &[&str] = &[
     "/boot",
 ];
 const PROTECTED_USER_DIRS: &[&str] = &["documents", "desktop", "pictures", "videos", "music", "downloads", "onedrive"];
-// junk folders inside otherwise protected trees
 const JUNK_EXCEPTIONS: &[&str] = &[
     "/windows/temp",
     "/windows/prefetch",
@@ -23,6 +21,10 @@ const JUNK_EXCEPTIONS: &[&str] = &[
 
 pub fn normalize(p: &str) -> String {
     let s = p.replace('\\', "/");
+    let s = match s.strip_prefix("//?/").or_else(|| s.strip_prefix("//./")) {
+        Some(rest) => rest.to_string(),
+        None => s,
+    };
     let s = if s.len() >= 2 && s.as_bytes()[1] == b':' { s[2..].to_string() } else { s };
     let mut stack: Vec<&str> = Vec::new();
     for part in s.split('/') {
@@ -64,7 +66,7 @@ pub fn is_protected_path(p: &str) -> bool {
         let mut parts = rest.splitn(2, '/');
         let _user = parts.next();
         match parts.next() {
-            None | Some("") => return true, // the profile root itself
+            None | Some("") => return true,
             Some(sub) => {
                 let top = sub.split('/').next().unwrap_or("");
                 if PROTECTED_USER_DIRS.iter().any(|d| top == *d || top.starts_with(&format!("{d} -"))) {
@@ -122,6 +124,14 @@ mod tests {
         for p in [r"C:\Users\bob\AppData\Local\Temp\x.tmp", r"C:\Windows\Temp\x.tmp", r"C:\Windows\Prefetch\a.pf"] {
             assert!(!is_protected_path(p), "{p}");
         }
+    }
+
+    #[test]
+    fn extended_length_paths_are_checked_like_normal_ones() {
+        assert!(is_protected_path(r"\\?\C:\Windows\System32\kernel32.dll"));
+        assert!(is_protected_path(r"\\?\C:\Users\bob\Documents\a.docx"));
+        assert!(is_system_path(r"\\.\C:\Program Files\X\a.exe"));
+        assert!(!is_protected_path(r"\\?\C:\Users\bob\AppData\Local\Temp\x.tmp"));
     }
 
     #[test]

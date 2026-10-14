@@ -1,9 +1,3 @@
-// Builds the installer and files it under <release dir>/v<version>/ with a stable name.
-//
-//   npm run release                 build, then collect the installer
-//   npm run release -- --skip-build collect an installer that is already built
-//
-// The release dir defaults to ../release, set RELEASE_DIR to put it somewhere else.
 import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -40,7 +34,6 @@ for (const f of ['LICENSE', 'NOTICE', 'TRADEMARKS.md']) {
 
 const notes = join(outDir, 'RELEASE_NOTES.md')
 if (existsSync(notes)) {
-  // keep the notes for this version, only refresh the checksum and size
   let text = readFileSync(notes, 'utf8')
   text = text.replace(/\b[0-9A-F]{64}\b/g, hash)
   text = text.replace(/(setup\.exe`? \| [^|]+\| )[\d.]+ MB/, `$1${size} MB`)

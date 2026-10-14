@@ -10,7 +10,7 @@ function read(): ThemeMode {
   try {
     const v = localStorage.getItem(KEY)
     if (v === 'dark' || v === 'light' || v === 'system') return v
-  } catch { /* storage unavailable */ }
+  } catch {}
   return 'dark'
 }
 
@@ -21,14 +21,13 @@ export const resolve = (m: ThemeMode): 'dark' | 'light' => (m === 'system' ? (me
 function apply() {
   const t = resolve(mode)
   document.documentElement.dataset.theme = t
-  // keep the native frame theme in step, ignore failures
   import('@tauri-apps/api/window').then((w) => w.getCurrentWindow().setTheme(mode === 'system' ? null : t)).catch(() => undefined)
   listeners.forEach((l) => l())
 }
 
 export function setThemeMode(m: ThemeMode) {
   mode = m
-  try { localStorage.setItem(KEY, m) } catch { /* ignore */ }
+  try { localStorage.setItem(KEY, m) } catch {}
   apply()
 }
 

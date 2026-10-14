@@ -6,7 +6,6 @@ import './index.css'
 import { App } from './App'
 import { initTheme } from './lib/theme'
 
-// every backend call goes through one command
 window.zyro = {
   invoke: (module, method, ...args) => invoke('call', { module, method, args }),
   on: (channel, cb) => {
@@ -21,6 +20,14 @@ window.zyro = {
 }
 
 initTheme()
+
+const idle = new WeakMap<Element, number>()
+document.addEventListener('scroll', (e) => {
+  const el = e.target instanceof Element ? e.target : document.documentElement
+  el.classList.add('is-scrolling')
+  clearTimeout(idle.get(el))
+  idle.set(el, window.setTimeout(() => el.classList.remove('is-scrolling'), 900))
+}, true)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

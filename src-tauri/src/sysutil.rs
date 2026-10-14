@@ -1,22 +1,25 @@
 use crate::model::Res;
+use crate::registry;
 use crate::util::run_exe;
 use regex::Regex;
 
-pub fn parse_service_start(out: &str) -> Option<String> {
-    let re = Regex::new(r"START_TYPE\s*:\s*(\d+)\s*(.*)").ok()?;
-    let c = re.captures(out)?;
-    let tail = c.get(2).map(|m| m.as_str()).unwrap_or("");
-    match &c[1] {
-        "2" if tail.to_uppercase().contains("DELAYED") => Some("delayed-auto".into()),
-        "2" => Some("auto".into()),
-        "3" => Some("demand".into()),
-        "4" => Some("disabled".into()),
+pub fn service_start(name: &str) -> Option<String> {
+    if name.is_empty() || name.contains(['\\', '/']) {
+        return None;
+    }
+    let key = format!(r"HKLM\SYSTEM\CurrentControlSet\Services\{name}");
+    let start = registry::read(&key, "Start")?.as_dword()?;
+    match start {
+        2 if registry::read(&key, "DelayedAutostart").and_then(|v| v.as_dword()) == Some(1) => Some("delayed-auto".into()),
+        2 => Some("auto".into()),
+        3 => Some("demand".into()),
+        4 => Some("disabled".into()),
         _ => None,
     }
 }
 
-pub fn service_start(name: &str) -> Option<String> {
-    run_exe("sc.exe", &["qc", name]).ok().and_then(|o| parse_service_start(&o))
+pub fn service_running(name: &str) -> bool {
+    run_exe("sc.exe", &["query", name]).map(|o| Regex::new(r"(?i)\b4\s+running\b").map(|re| re.is_match(&o)).unwrap_or(false)).unwrap_or(false)
 }
 
 pub fn stop_service(name: &str) {
@@ -68,18 +71,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_service_start_types() {
-        assert_eq!(parse_service_start("        START_TYPE         : 2   AUTO_START").as_deref(), Some("auto"));
-        assert_eq!(parse_service_start("        START_TYPE         : 2   AUTO_START  (DELAYED)").as_deref(), Some("delayed-auto"));
-        assert_eq!(parse_service_start("        START_TYPE         : 3   DEMAND_START").as_deref(), Some("demand"));
-        assert_eq!(parse_service_start("        START_TYPE         : 4   DISABLED").as_deref(), Some("disabled"));
-        assert_eq!(parse_service_start("The specified service does not exist"), None);
+    fn real_service_query_works() {
+        assert_eq!(service_start("EventLog").as_deref(), Some("auto"));
+        assert!(service_start("ZyroNoSuchService").is_none());
+        assert!(service_start(r"..\Evil").is_none());
+        assert!(service_start("").is_none());
+        let sc = run_exe("sc.exe", &["qc", "Spooler"]).unwrap_or_default();
+        let from_sc = if sc.contains("DEMAND_START") { "demand" } else if sc.contains("DISABLED") { "disabled" } else if sc.contains("DELAYED") { "delayed-auto" } else { "auto" };
+        assert_eq!(service_start("Spooler").as_deref(), Some(from_sc));
     }
 
     #[test]
-    fn real_service_query_works() {
-        assert!(service_start("EventLog").is_some());
-        assert!(service_start("ZyroNoSuchService").is_none());
+    fn reports_whether_a_service_is_running() {
+        assert!(service_running("EventLog"));
+        assert!(!service_running("ZyroNoSuchService"));
     }
 
     #[test]

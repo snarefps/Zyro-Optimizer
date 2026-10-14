@@ -13,7 +13,8 @@ module.exports = {
         soft: v('soft'),
         mute: v('mute'),
         accent: v('accent'),
-        accent2: v('accent2'),
+        accenttext: v('accent-text'),
+        onaccent: v('onaccent'),
         ok: v('ok'),
         warn: v('warn'),
         bad: v('bad'),
@@ -22,7 +23,8 @@ module.exports = {
       },
       boxShadow: {
         card: 'var(--shadow-card)',
-        pop: 'var(--shadow-pop)'
+        pop: 'var(--shadow-pop)',
+        dialog: 'var(--shadow-dialog)'
       },
       fontFamily: { sans: ['"Segoe UI Variable Text"', '"Segoe UI"', 'system-ui', 'sans-serif'] }
     }

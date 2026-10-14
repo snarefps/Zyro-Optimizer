@@ -55,7 +55,6 @@ impl UndoLog {
             reverted: false,
         };
         self.entries.push(entry.clone());
-        // cap the log
         if self.entries.len() > 1000 {
             let drop = self.entries.len() - 1000;
             self.entries.drain(0..drop);

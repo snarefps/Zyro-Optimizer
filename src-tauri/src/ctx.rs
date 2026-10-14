@@ -1,5 +1,5 @@
 use crate::undo::{UndoEntry, UndoLog};
-use crate::util::{now_ms, run_exe};
+use crate::util::now_ms;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
@@ -141,5 +141,31 @@ pub fn minimize_to_tray() -> bool {
 
 static ADMIN: OnceLock<bool> = OnceLock::new();
 pub fn is_admin() -> bool {
-    *ADMIN.get_or_init(|| run_exe("net", &["session"]).is_ok())
+    *ADMIN.get_or_init(|| unsafe {
+        use std::ffi::c_void;
+        use std::mem::size_of;
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+        use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+        let mut token = std::ptr::null_mut();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            return false;
+        }
+        let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+        let mut len = 0u32;
+        let ok = GetTokenInformation(token, TokenElevation, &mut elevation as *mut _ as *mut c_void, size_of::<TOKEN_ELEVATION>() as u32, &mut len);
+        CloseHandle(token);
+        ok != 0 && elevation.TokenIsElevated != 0
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn admin_check_agrees_with_windows() {
+        let said = crate::util::run_ps("([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)").unwrap();
+        assert_eq!(is_admin(), said.trim().eq_ignore_ascii_case("true"));
+    }
 }

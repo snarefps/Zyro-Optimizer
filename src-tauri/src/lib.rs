@@ -1,3 +1,4 @@
+mod apps;
 mod cleaner;
 mod ctx;
 mod debloat;
@@ -20,6 +21,7 @@ mod undo;
 mod uninstaller;
 mod updates;
 mod util;
+mod winget;
 
 use model::Res;
 use serde_json::{json, Value};
@@ -44,6 +46,7 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
     match (module, method) {
         ("cleaner", "scan") => cleaner::scan(),
         ("cleaner", "apply") => cleaner::apply(a_strs(a, 0)),
+        ("cleaner", "details") => cleaner::details(&a_str(a, 0)),
 
         ("startup", "scan") => startup::scan(),
         ("startup", "apply") => startup::apply(a_strs(a, 0)),
@@ -85,6 +88,12 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("updates", "drivers") => updates::drivers(),
         ("updates", "openWindowsUpdate") => updates::open_windows_update(),
 
+        ("apps", "scan") => apps::scan(),
+        ("apps", "apply") => apps::apply(a_strs(a, 0)),
+        ("apps", "info") => apps::info(a_str(a, 0)),
+        ("apps", "download") => apps::download(a_str(a, 0)),
+        ("apps", "helper") => apps::helper(),
+
         ("monitor", "stats") => monitor::stats(),
         ("monitor", "info") => monitor::info(),
 
@@ -111,6 +120,8 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("system", "openSystemRestore") => system::open_system_restore(),
         ("system", "openTelegram") => system::open_telegram(),
         ("system", "openGithub") => system::open_github(),
+        ("system", "checkUpdate") => system::check_update(),
+        ("system", "openReleases") => system::open_releases(),
 
         ("history", "list") => system::history_list(),
         ("history", "revert") => system::history_revert(a_str(a, 0)),
@@ -139,7 +150,7 @@ fn show_main_window(app: &AppHandle) {
         .decorations(false)
         .shadow(true)
         .theme(Some(tauri::Theme::Dark))
-        .background_color(tauri::window::Color(0, 0, 0, 255))
+        .background_color(tauri::window::Color(32, 32, 32, 255))
         .additional_browser_args(WEBVIEW_ARGS)
         .build();
 }
@@ -181,7 +192,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-// after "restart as admin" the old copy is still alive; wait for it or the single-instance check kills this one
 fn wait_for_previous_instance() {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{OpenProcess, WaitForSingleObject};
@@ -218,7 +228,6 @@ pub fn run() {
         .expect("error while building Zyro Optimizer");
 
     app.run(|_app, event| {
-        // stay in the tray when the last window closes
         if let RunEvent::ExitRequested { api, code, .. } = event {
             if code.is_none() && ctx::minimize_to_tray() {
                 api.prevent_exit();
