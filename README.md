@@ -16,7 +16,7 @@
 <a href="https://github.com/snarefps/Zyro-Optimizer/releases">
   <img
     alt="Downloads"
-    src="https://img.shields.io/github/downloads/snarefps/Zyro-Optimizer/total?style=flat-square&label=downloads&color=orange"
+    src="https://img.shields.io/github/downloads-pre/snarefps/Zyro-Optimizer/latest/Zyro-Optimizer-x64-setup.exe?displayAssetName=false&style=flat-square&label=downloads&color=orange"
   >
 </a>
   <a href="https://t.me/ZeroNullex"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-ZeroNullex-2AABEE?style=flat-square&logo=telegram&logoColor=white"></a>
