@@ -14,8 +14,10 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-green?style=flat-square"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4?style=flat-square">
 <a href="https://github.com/snarefps/Zyro-Optimizer/releases">
-  <img alt="Downloads"
-       src="https://img.shields.io/github/downloads/snarefps/Zyro-Optimizer/v1.2.0/Zyro-Optimizer-x64-setup.exe?style=flat-square&label=downloads&color=orange">
+  <img
+    alt="Downloads"
+    src="https://img.shields.io/github/downloads/snarefps/Zyro-Optimizer/total?style=flat-square&label=downloads&color=orange"
+  >
 </a>
   <a href="https://t.me/ZeroNullex"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-ZeroNullex-2AABEE?style=flat-square&logo=telegram&logoColor=white"></a>
 </p>
