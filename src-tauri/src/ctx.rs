@@ -31,6 +31,13 @@ impl Default for Schedule {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PriorityRule {
+    pub exe: String,
+    pub level: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub total_freed_bytes: u64,
@@ -38,6 +45,17 @@ pub struct Settings {
     pub schedule: Schedule,
     pub launch_at_login: bool,
     pub minimize_to_tray: bool,
+    pub auto_boost: bool,
+    pub auto_games: Vec<String>,
+    pub priority_rules: Vec<PriorityRule>,
+    pub auto_trim: bool,
+    pub trim_percent: u32,
+    pub startup_alerts: bool,
+    pub startup_baselined: bool,
+    pub known_startup: Vec<String>,
+    pub new_startup_week: u32,
+    pub weekly_report: bool,
+    pub last_report: u64,
 }
 
 impl Default for Settings {
@@ -48,6 +66,17 @@ impl Default for Settings {
             schedule: Schedule::default(),
             launch_at_login: false,
             minimize_to_tray: true,
+            auto_boost: false,
+            auto_games: vec![],
+            priority_rules: vec![],
+            auto_trim: false,
+            trim_percent: 85,
+            startup_alerts: true,
+            startup_baselined: false,
+            known_startup: vec![],
+            new_startup_week: 0,
+            weekly_report: false,
+            last_report: 0,
         }
     }
 }
@@ -60,9 +89,11 @@ pub struct Ctx {
 }
 
 static CTX: OnceLock<Ctx> = OnceLock::new();
+pub static CTX_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub fn init(app: AppHandle, data_dir: PathBuf) {
     let _ = std::fs::create_dir_all(&data_dir);
+    let _ = CTX_DIR.set(data_dir.clone());
     let settings: Settings = std::fs::read_to_string(data_dir.join("settings.json"))
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())

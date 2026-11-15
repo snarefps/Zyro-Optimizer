@@ -103,6 +103,46 @@ $out
     .replace("__CURATED__", &curated)
 }
 
+pub struct Entry {
+    pub id: String,
+    pub name: String,
+    pub cmd: String,
+}
+
+pub fn light_items() -> Vec<Entry> {
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    use winreg::RegKey;
+    let mut out = vec![];
+    let runs = [
+        (HKEY_CURRENT_USER, "HKCU", r"Software\Microsoft\Windows\CurrentVersion\Run", "Run"),
+        (HKEY_LOCAL_MACHINE, "HKLM", r"Software\Microsoft\Windows\CurrentVersion\Run", "Run"),
+        (HKEY_LOCAL_MACHINE, "HKLM", r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run", "Run32"),
+    ];
+    for (root, hive, path, sub) in runs {
+        let Ok(key) = RegKey::predef(root).open_subkey(path) else { continue };
+        for (name, value) in key.enum_values().filter_map(|v| v.ok()) {
+            let cmd = value.to_string();
+            out.push(Entry { id: make_id("reg", hive, sub, &name), name, cmd });
+        }
+    }
+    let folders = [
+        ("HKCU", std::env::var("APPDATA").map(|p| std::path::PathBuf::from(p).join(r"Microsoft\Windows\Start Menu\Programs\Startup"))),
+        ("HKLM", std::env::var("ProgramData").map(|p| std::path::PathBuf::from(p).join(r"Microsoft\Windows\Start Menu\Programs\StartUp"))),
+    ];
+    for (hive, dir) in folders {
+        let Ok(dir) = dir else { continue };
+        let Ok(rd) = std::fs::read_dir(dir) else { continue };
+        for e in rd.filter_map(|e| e.ok()) {
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.eq_ignore_ascii_case("desktop.ini") {
+                continue;
+            }
+            out.push(Entry { id: make_id("fld", hive, "StartupFolder", &name), cmd: e.path().to_string_lossy().to_string(), name });
+        }
+    }
+    out
+}
+
 fn kind_label(src: &str) -> &'static str {
     match src {
         "reg" => "Startup entry",
@@ -233,7 +273,7 @@ mod tests {
     }
 
     #[test]
-    fn ids_round_trip_even_with_pipes_in_names() {
+    fn id_roundtrip() {
         let id = make_id("reg", "HKCU", "Run", "weird|name");
         let p = parse_id(&id);
         assert_eq!((p.src.as_str(), p.hive.as_str(), p.sub.as_str(), p.name.as_str()), ("reg", "HKCU", "Run", "weird|name"));
@@ -251,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn startup_approved_toggle_round_trips_on_a_private_key() {
+    fn approved_toggle() {
         let key = r"HKCU\Software\ZyroStartupApprovedTest";
         let _ = registry::delete_key(key);
         registry::write(key, "App", &Raw::binary({ let mut b = vec![0u8; 12]; b[0] = 3; b })).unwrap();

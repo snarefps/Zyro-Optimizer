@@ -1,6 +1,6 @@
 [package]
 name = "zyro-optimizer"
-version = "1.2.0"
+version = "1.3.0"
 description = "A small Windows PC optimizer"
 authors = ["ZeroNullex Team"]
 license = "Apache-2.0"
@@ -15,7 +15,6 @@ tauri-build = { version = "2", features = [] }
 
 [features]
 default = ["custom-protocol"]
-# Embeds the built UI. Without it the exe tries to load the dev server instead.
 custom-protocol = ["tauri/custom-protocol"]
 
 [dependencies]
@@ -42,6 +41,7 @@ windows-sys = { version = "0.60", features = [
   "Win32_System_LibraryLoader",
   "Win32_NetworkManagement_IpHelper",
   "Win32_NetworkManagement_Ndis",
+  "Win32_Graphics_Gdi",
   "Win32_Security",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Memory",

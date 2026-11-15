@@ -99,6 +99,10 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
     let installed = run_ps_json("Get-AppxPackage | Select-Object Name, PackageFullName, InstallLocation", Duration::from_secs(60))?;
     let mut out = vec![];
     for id in ids {
+        if crate::jobs::requested() {
+            out.push(ItemResult::skipped(&id, "Cancelled"));
+            continue;
+        }
         let pkg = installed.iter().find(|p| str_field(p, "PackageFullName") == id);
         let Some((pkg, b)) = pkg.and_then(|p| match_bloat(&str_field(p, "Name")).map(|b| (p, b))) else {
             out.push(ItemResult::skipped(&id, "Not on the removable list"));
@@ -136,7 +140,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn matches_exact_and_wildcard_names_but_never_core_apps() {
+    fn bloat_matching() {
         assert_eq!(match_bloat("Microsoft.BingNews").unwrap().label, "Microsoft News");
         assert_eq!(match_bloat("king.com.CandyCrushSaga").unwrap().label, "Candy Crush");
         for core in [
@@ -153,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn wildcard_matches_are_not_labelled_safe_in_the_scan_logic() {
+    fn wildcard_risk() {
         let b = match_bloat("Facebook.InstagramBeta").unwrap();
         assert!(b.pattern.contains('*'));
     }

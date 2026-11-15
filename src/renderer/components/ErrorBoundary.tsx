@@ -1,4 +1,5 @@
 import { Component, ReactNode } from 'react'
+import { zy } from '../api'
 import { Icon } from './Icon'
 import { Button } from './ui'
 
@@ -7,6 +8,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: s
 
   static getDerivedStateFromError(error: Error) {
     return { error }
+  }
+
+  componentDidCatch(error: Error) {
+    zy.system.logError('page', error.message).catch(() => undefined)
   }
 
   componentDidUpdate(prev: { resetKey?: string }) {

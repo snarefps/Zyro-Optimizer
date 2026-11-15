@@ -233,3 +233,21 @@ select option { background: rgb(var(--panel)); color: rgb(var(--fg)); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--ctl);
+  border: 1px solid var(--ctl-stroke);
+  border-bottom-color: var(--input-bottom);
+  border-radius: 4px;
+  padding: 8px 11px;
+  color: rgb(var(--fg));
+  outline: none;
+  resize: none;
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+  line-height: 20px;
+  tab-size: 4;
+}
+textarea:focus { background: rgb(var(--bg) / 0.9); border-bottom: 2px solid rgb(var(--accent)); padding-bottom: 7px; }

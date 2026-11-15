@@ -150,7 +150,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_adapter_byte_counters_without_spawning_anything() {
+    fn adapter_counters() {
         let (rx, tx) = adapter_totals().expect("GetIfTable2 failed");
         println!("rx {rx} tx {tx}");
         assert!(rx > 0 || tx > 0, "no traffic counted on any physical adapter");
@@ -165,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    fn stats_has_every_field_the_dashboard_reads() {
+    fn stats_fields() {
         let v = stats().unwrap();
         for k in ["cpu", "mem", "disk", "net"] {
             assert!(v.get(k).is_some(), "{k}");

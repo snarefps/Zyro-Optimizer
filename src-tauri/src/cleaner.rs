@@ -36,6 +36,8 @@ pub struct Env {
     pub local: String,
     pub system_root: String,
     pub program_data: String,
+    pub roaming: String,
+    pub pf86: String,
 }
 
 impl Env {
@@ -46,6 +48,8 @@ impl Env {
             local: get("LOCALAPPDATA", ""),
             system_root: get("SystemRoot", r"C:\Windows"),
             program_data: get("ProgramData", r"C:\ProgramData"),
+            roaming: get("APPDATA", ""),
+            pf86: get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
         }
     }
 }
@@ -58,6 +62,8 @@ pub fn resolve_targets(env: &Env) -> Vec<CleanTarget> {
     let local = PathBuf::from(&env.local);
     let win = PathBuf::from(&env.system_root);
     let pd = PathBuf::from(&env.program_data);
+    let roaming = PathBuf::from(&env.roaming);
+    let pf86 = PathBuf::from(&env.pf86);
     let chromium = |id: &'static str, label: &'static str, root: PathBuf| CleanTarget {
         profiles: Some(Profiles {
             root,
@@ -69,7 +75,7 @@ pub fn resolve_targets(env: &Env) -> Vec<CleanTarget> {
                 PathBuf::from("Service Worker").join("CacheStorage"),
             ],
         }),
-        ..t(id, label, "Cache, code cache and GPU cache. Logins and bookmarks are kept.", "Browsers", Risk::Safe)
+        ..t(id, label, "Cache, code cache and GPU cache. Logins and bookmarks are kept", "Browsers", Risk::Safe)
     };
     vec![
         CleanTarget { dirs: vec![PathBuf::from(&env.temp)], ..t("user-temp", "User temporary files", "Leftover files from apps and installers", "Windows", Risk::Safe) },
@@ -86,13 +92,36 @@ pub fn resolve_targets(env: &Env) -> Vec<CleanTarget> {
         CleanTarget { needs_admin: true, dirs: vec![pd.join("Microsoft").join("Windows").join("WER")], ..t("wer", "Windows Error Reporting", "Queued crash reports", "Windows", Risk::Safe) },
         CleanTarget { dirs: vec![local.join("Microsoft").join("Windows").join("INetCache")], ..t("inet-cache", "Internet cache (Windows)", "Cached web content used by Windows apps", "Windows", Risk::Safe) },
         CleanTarget { dirs: vec![local.join("D3DSCache")], ..t("shader-cache", "DirectX shader cache", "Rebuilt by games the next time they run", "Apps", Risk::Low) },
+        CleanTarget {
+            dirs: ["Cache", "Code Cache", "GPUCache"].iter().map(|d| roaming.join("discord").join(d)).collect(),
+            ..t("discord", "Discord cache", "Images and files Discord keeps for faster loading", "Apps", Risk::Safe)
+        },
+        CleanTarget {
+            dirs: ["Cache", "Code Cache", "GPUCache", "blob_storage", "tmp"].iter().map(|d| roaming.join("Microsoft").join("Teams").join(d)).collect(),
+            ..t("teams", "Microsoft Teams cache", "Temporary files of the classic Teams app", "Apps", Risk::Safe)
+        },
+        CleanTarget {
+            dirs: vec![local.join("Spotify").join("Data"), local.join("Spotify").join("Storage")],
+            ..t("spotify", "Spotify cache", "Cached songs and images. Offline downloads are fetched again", "Apps", Risk::Low)
+        },
+        CleanTarget {
+            dirs: vec![pf86.join("Steam").join("steamapps").join("shadercache"), local.join("Steam").join("htmlcache")],
+            ..t("steam-cache", "Steam shader and browser cache", "Games rebuild their shaders the next time they start", "Apps", Risk::Low)
+        },
+        CleanTarget {
+            dirs: ["Cache", "CachedData", "Code Cache", "GPUCache", "logs"].iter().map(|d| roaming.join("Code").join(d)).collect(),
+            ..t("vscode", "Visual Studio Code cache", "Caches and logs. Settings and extensions are kept", "Developer", Risk::Safe)
+        },
+        CleanTarget { dirs: vec![local.join("npm-cache")], ..t("npm-cache", "npm cache", "Downloaded packages, fetched again when needed", "Developer", Risk::Safe) },
+        CleanTarget { dirs: vec![local.join("pip").join("Cache")], ..t("pip-cache", "pip cache", "Downloaded Python packages, fetched again when needed", "Developer", Risk::Safe) },
+        CleanTarget { dirs: vec![local.join("NuGet").join("v3-cache")], ..t("nuget-cache", "NuGet cache", "Downloaded .NET packages, fetched again when needed", "Developer", Risk::Safe) },
         CleanTarget { recycle_bin: true, ..t("recycle-bin", "Recycle Bin", "Files you already deleted", "System", Risk::Low) },
         chromium("chrome", "Google Chrome cache", local.join("Google").join("Chrome").join("User Data")),
         chromium("edge", "Microsoft Edge cache", local.join("Microsoft").join("Edge").join("User Data")),
         chromium("brave", "Brave cache", local.join("BraveSoftware").join("Brave-Browser").join("User Data")),
         CleanTarget {
             profiles: Some(Profiles { root: local.join("Mozilla").join("Firefox").join("Profiles"), pattern: r".+", sub: vec![PathBuf::from("cache2")] }),
-            ..t("firefox", "Mozilla Firefox cache", "Cached web content. Logins and bookmarks are kept.", "Browsers", Risk::Safe)
+            ..t("firefox", "Mozilla Firefox cache", "Cached web content. Logins and bookmarks are kept", "Browsers", Risk::Safe)
         },
     ]
 }
@@ -170,6 +199,10 @@ pub fn apply_ids(ids: &[String], source: &str) -> Vec<ItemResult> {
     let mut results = vec![];
     let mut total = 0u64;
     for id in ids {
+        if crate::jobs::requested() {
+            results.push(ItemResult::skipped(id, "Cancelled"));
+            continue;
+        }
         let Some(t) = all.iter().find(|x| x.id == id) else {
             results.push(ItemResult::failed(id, "Unknown target"));
             continue;
@@ -204,6 +237,9 @@ pub fn apply_ids(ids: &[String], source: &str) -> Vec<ItemResult> {
         if failed > 0 {
             r.reason = Some(format!("{failed} item(s) in use were skipped"));
         }
+        if crate::jobs::requested() {
+            r.reason = Some("Stopped early, the rest was left alone".into());
+        }
         results.push(r);
     }
     ctx().record_freed(total, source);
@@ -217,7 +253,7 @@ pub fn details(id: &str) -> Res<serde_json::Value> {
     let all = targets();
     let t = all.iter().find(|x| x.id == id).ok_or("Unknown target")?;
     if t.recycle_bin {
-        return Ok(json!({ "items": [], "total": 0, "note": "Windows does not list what is in the Recycle Bin here." }));
+        return Ok(json!({ "items": [], "total": 0, "note": "Windows does not list what is in the Recycle Bin here" }));
     }
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(6);
     let mut rows: Vec<(String, String, u64, bool)> = vec![];
@@ -242,6 +278,11 @@ pub fn details(id: &str) -> Res<serde_json::Value> {
     Ok(json!({ "items": items, "total": total }))
 }
 
+pub fn quick_clean() -> u64 {
+    let ids: Vec<String> = scan_items().into_iter().filter(|i| i.needs_admin != Some(true) && i.risk == Risk::Safe).map(|i| i.id).collect();
+    apply_ids(&ids, "Quick clean").iter().filter_map(|r| r.freed_bytes).sum()
+}
+
 pub fn scan() -> Res<serde_json::Value> {
     crate::model::to_value(scan_items())
 }
@@ -260,6 +301,8 @@ mod tests {
             local: r"C:\Users\bob\AppData\Local".into(),
             system_root: r"C:\Windows".into(),
             program_data: r"C:\ProgramData".into(),
+            roaming: r"C:\Users\bob\AppData\Roaming".into(),
+            pf86: r"C:\Program Files (x86)".into(),
         }
     }
 

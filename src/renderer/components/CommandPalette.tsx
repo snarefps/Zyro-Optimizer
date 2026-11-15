@@ -5,7 +5,7 @@ import { go, ROUTES } from '../lib/routes'
 import { setActionCenterOpen } from '../lib/tasks'
 import { resolve, setThemeMode, useThemeMode } from '../lib/theme'
 import { Icon } from './Icon'
-import { Kbd } from './ui'
+import { Kbd, useToast } from './ui'
 
 interface Cmd {
   id: string
@@ -22,6 +22,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const [admin, setAdmin] = useState(true)
   const input = useRef<HTMLInputElement>(null)
   const mode = useThemeMode()
+  const toast = useToast()
 
   useEffect(() => {
     if (!open) return
@@ -35,9 +36,17 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { id: 'center', label: 'Open Action Center', hint: 'See running and finished jobs', icon: 'bell', keywords: 'activity progress tasks notifications', run: () => setActionCenterOpen(true) },
       { id: 'theme', label: resolve(mode) === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', hint: 'Appearance', icon: resolve(mode) === 'dark' ? 'sun--v1' : 'moon-symbol', keywords: 'theme dark light appearance', run: () => setThemeMode(resolve(mode) === 'dark' ? 'light' : 'dark') }
     ]
+    list.push({
+      id: 'report',
+      label: 'Save a PC report',
+      hint: 'A text file with your hardware and drives',
+      icon: 'computer',
+      keywords: 'report system information hardware share help',
+      run: () => { zy.system.saveReport().then((r: { path: string }) => { toast('ok', `Saved to ${r.path}`); zy.disk.reveal(r.path) }).catch((e: any) => toast('err', String(e?.message ?? e))) }
+    })
     if (!admin) list.push({ id: 'admin', label: 'Restart as administrator', hint: 'Unlock the items marked "Needs admin"', icon: 'shield', keywords: 'admin elevate uac', run: () => { zy.system.relaunchAsAdmin().catch(() => undefined) } })
     return [...ROUTES.map((r) => ({ id: r.id, label: r.label, hint: `Go to ${r.group}`, icon: r.icon, keywords: `${r.keywords} ${r.group}`, run: () => go(r.id) })), ...list]
-  }, [mode, admin])
+  }, [mode, admin, toast])
 
   const filter = (query: string) => {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean)

@@ -1,9 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { zy } from './api'
 import { App } from './App'
+import { QuickPanel } from './components/QuickPanel'
 import { initTheme } from './lib/theme'
 
 window.zyro = {
@@ -21,6 +24,10 @@ window.zyro = {
 
 initTheme()
 
+const logError = (source: string, message: string) => { zy.system.logError(source, message).catch(() => undefined) }
+window.addEventListener('error', (e) => logError('window', e.message))
+window.addEventListener('unhandledrejection', (e) => logError('promise', String(e.reason?.message ?? e.reason)))
+
 const idle = new WeakMap<Element, number>()
 document.addEventListener('scroll', (e) => {
   const el = e.target instanceof Element ? e.target : document.documentElement
@@ -31,6 +38,6 @@ document.addEventListener('scroll', (e) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {getCurrentWindow().label === 'quick' ? <QuickPanel /> : <App />}
   </StrictMode>
 )

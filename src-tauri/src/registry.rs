@@ -114,7 +114,7 @@ mod tests {
     const KEY: &str = r"HKCU\Software\ZyroOptimizerRustTest";
 
     #[test]
-    fn writes_reads_restores_and_deletes_values() {
+    fn value_roundtrip() {
         let _ = delete_key(KEY);
         assert!(read(KEY, "Nope").is_none());
 

@@ -105,6 +105,10 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
     w.ready()?;
     let mut out = vec![];
     for id in ids {
+        if crate::jobs::requested() {
+            out.push(ItemResult::skipped(&id, "Cancelled"));
+            continue;
+        }
         if !is_safe_winget_id(&id) {
             out.push(ItemResult::skipped(&id, "Invalid package id"));
             continue;
@@ -169,7 +173,7 @@ mod tests {
             row("Git", "Git.Git", "2.45.1", "2.46.0", "winget"),
             row("Visual Studio Code", "Microsoft.VisualStudioCode", "1.90.0", "1.91.1", "winget"),
             row("Mozilla Firefox (x64 en)", "Mozilla.Firefox", "127.0", "128.0", "winget"),
-            "3 upgrades available.".to_string(),
+            "3 upgrades available".to_string(),
         ]
         .join("\r\n")
     }
@@ -183,8 +187,8 @@ mod tests {
     }
 
     #[test]
-    fn returns_nothing_when_nothing_is_outdated() {
-        assert!(parse_winget_upgrade("No installed package found matching input criteria.").is_empty());
+    fn nothing_outdated() {
+        assert!(parse_winget_upgrade("No installed package found matching input criteria").is_empty());
     }
 
     #[test]

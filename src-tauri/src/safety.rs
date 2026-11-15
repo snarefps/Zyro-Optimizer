@@ -56,6 +56,9 @@ pub fn is_protected_path(p: &str) -> bool {
     if n.is_empty() || n == "/users" {
         return true;
     }
+    if n.contains("/steamapps/shadercache") && !n.starts_with("/windows") {
+        return false;
+    }
     if JUNK_EXCEPTIONS.iter().any(|b| under_or_equal(&n, b)) {
         return false;
     }
@@ -127,7 +130,7 @@ mod tests {
     }
 
     #[test]
-    fn extended_length_paths_are_checked_like_normal_ones() {
+    fn extended_paths() {
         assert!(is_protected_path(r"\\?\C:\Windows\System32\kernel32.dll"));
         assert!(is_protected_path(r"\\?\C:\Users\bob\Documents\a.docx"));
         assert!(is_system_path(r"\\.\C:\Program Files\X\a.exe"));
@@ -141,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn system_path_blocks_os_but_allows_user_media() {
+    fn system_paths() {
         assert!(is_system_path(r"C:\Windows\System32\a.dll"));
         assert!(is_system_path(r"C:\Program Files\X\a.exe"));
         assert!(is_system_path(r"C:\Users\bob\AppData\Local\x"));

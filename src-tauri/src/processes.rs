@@ -37,6 +37,7 @@ pub struct ProcInfo {
 }
 
 static SYS: Mutex<Option<System>> = Mutex::new(None);
+static NAMES: Mutex<Option<System>> = Mutex::new(None);
 
 unsafe extern "system" fn enum_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let map = &mut *(lparam as *mut HashMap<u32, String>);
@@ -117,6 +118,38 @@ pub fn snapshot() -> Vec<ProcInfo> {
     out
 }
 
+pub fn running() -> HashMap<String, Vec<u32>> {
+    let mut guard = NAMES.lock().unwrap_or_else(|e| e.into_inner());
+    let sys = guard.get_or_insert_with(System::new);
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let mut map: HashMap<String, Vec<u32>> = HashMap::new();
+    for p in sys.processes().values() {
+        map.entry(clean_name(&p.name().to_string_lossy()).to_lowercase()).or_default().push(p.pid().as_u32());
+    }
+    map
+}
+
+pub fn set_priority(pid: u32, level: &str) -> bool {
+    use windows_sys::Win32::System::Threading::{
+        SetPriorityClass, ABOVE_NORMAL_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS, HIGH_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS, PROCESS_SET_INFORMATION,
+    };
+    let class = match level {
+        "high" => HIGH_PRIORITY_CLASS,
+        "above" => ABOVE_NORMAL_PRIORITY_CLASS,
+        "below" => BELOW_NORMAL_PRIORITY_CLASS,
+        _ => NORMAL_PRIORITY_CLASS,
+    };
+    unsafe {
+        let h = OpenProcess(PROCESS_SET_INFORMATION, 0, pid);
+        if h.is_null() {
+            return false;
+        }
+        let ok = SetPriorityClass(h, class) != 0;
+        CloseHandle(h);
+        ok
+    }
+}
+
 pub fn list() -> Res<Value> {
     to_value(snapshot())
 }
@@ -135,7 +168,7 @@ pub fn kill(pid: u32) -> Res<Value> {
     if is_ours(sys, pid) {
         return Ok(json!({ "ok": false, "reason": "Cannot close Zyro itself" }));
     }
-    Ok(if p.kill() { json!({ "ok": true }) } else { json!({ "ok": false, "reason": "Access denied. Try running Zyro as administrator." }) })
+    Ok(if p.kill() { json!({ "ok": true }) } else { json!({ "ok": false, "reason": "Access denied. Try running Zyro as administrator" }) })
 }
 
 pub fn trim_memory_raw() -> (u64, u32) {

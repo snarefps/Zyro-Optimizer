@@ -13,6 +13,14 @@ const TARGETS: { id: string; label: string; admin?: boolean }[] = [
   { id: 'edge', label: 'Edge cache' },
   { id: 'brave', label: 'Brave cache' },
   { id: 'firefox', label: 'Firefox cache' },
+  { id: 'discord', label: 'Discord cache' },
+  { id: 'teams', label: 'Microsoft Teams cache' },
+  { id: 'spotify', label: 'Spotify cache' },
+  { id: 'steam-cache', label: 'Steam shader and browser cache' },
+  { id: 'vscode', label: 'Visual Studio Code cache' },
+  { id: 'npm-cache', label: 'npm cache' },
+  { id: 'pip-cache', label: 'pip cache' },
+  { id: 'nuget-cache', label: 'NuGet cache' },
   { id: 'recycle-bin', label: 'Recycle Bin' },
   { id: 'win-temp', label: 'Windows temporary files', admin: true },
   { id: 'prefetch', label: 'Prefetch cache', admin: true },
@@ -52,13 +60,13 @@ export function Scheduler() {
 
   return (
     <>
-      <PageHeader title="Scheduler" subtitle="Clean automatically while Zyro runs in the system tray. Only the items you tick are cleaned, using the same safe rules as the Junk Cleaner." actions={<Button icon="timer" onClick={runNow} busy={running} disabled={s.targets.length === 0}>Run now</Button>} />
+      <PageHeader title="Scheduler" subtitle="Clean automatically while Zyro runs in the system tray. Only the items you tick are cleaned, using the same safe rules as the Junk Cleaner" actions={<Button icon="timer" onClick={runNow} busy={running} disabled={s.targets.length === 0}>Run now</Button>} />
       <div className="pb-2">
         <div className="space-y-1">
           <Setting icon="alarm-clock" title="Automatic cleaning" description={s.lastRun ? `Last run ${new Date(s.lastRun).toLocaleString()}` : 'Has not run yet'}>
             <Toggle on={s.enabled} onChange={(v) => save({ enabled: v })} />
           </Setting>
-          <Setting icon="calendar" title="Schedule" description="How often and when Zyro cleans in the tray.">
+          <Setting icon="calendar" title="Schedule" description="How often and when Zyro cleans in the tray">
             <Select value={s.frequency as string} onChange={(v) => save({ frequency: v })} options={[{ value: 'daily', label: 'Every day' }, { value: 'weekly', label: 'Every week' }, { value: 'monthly', label: 'Every month' }]} />
             <input type="time" value={s.time} onChange={(e) => save({ time: e.target.value })} />
           </Setting>
@@ -76,14 +84,14 @@ export function Scheduler() {
                 </label>
               ))}
             </Card>
-            <p className="mt-3 text-[12px] leading-5 text-mute">Scheduled cleaning only runs while Zyro is running. Closing the window keeps it in the tray, using only a few megabytes. Change this on the Settings page.</p>
+            <p className="mt-3 text-[12px] leading-5 text-mute">Scheduled cleaning only runs while Zyro is running. Closing the window keeps it in the tray, using only a few megabytes. Change this on the Settings page</p>
           </div>
           <div className="col-span-5">
             <SectionTitle>Total space freed</SectionTitle>
             <Card className="p-4">
               <div className="text-[28px] font-semibold leading-9">{formatBytes(cfg.totalFreedBytes) || '0 B'}</div>
               <div className="mt-3 space-y-2.5">
-                {history.length === 0 ? <div className="text-[14px] text-mute">Cleaning history will appear here.</div> : history.map((h) => (
+                {history.length === 0 ? <div className="text-[14px] text-mute">Cleaning history will appear here</div> : history.map((h) => (
                   <div key={h.ts} className="flex items-center gap-3 text-[12px]">
                     <span className="w-24 shrink-0 text-mute">{new Date(h.ts).toLocaleDateString()}</span>
                     <div className="flex-1"><ProgressBar value={(h.freed / maxFreed) * 100} height={6} /></div>

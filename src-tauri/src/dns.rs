@@ -216,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_addresses_that_cannot_be_dns_servers() {
+    fn bad_addresses() {
         for bad in ["", "abc", "1.2.3", "0.0.0.0", "127.0.0.1", "255.255.255.255", "8.8.8.8; calc", "999.1.1.1"] {
             assert!(parse_server(bad).is_err(), "{bad}");
         }
@@ -224,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    fn query_packet_is_a_well_formed_a_question() {
+    fn query_format() {
         let p = query_packet();
         assert_eq!(&p[4..6], &[0, 1]);
         assert_eq!(p[12], 7);

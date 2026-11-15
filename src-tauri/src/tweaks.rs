@@ -38,6 +38,10 @@ const CDM: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDelive
 const ADV: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
 const SYSPROFILE: &str = r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile";
 const POLICY_SYSTEM: &str = r"HKLM\SOFTWARE\Policies\Microsoft\Windows\System";
+const CAM: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam";
+const MIC: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone";
+const LOC: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location";
+const OLD_INSTALL: &str = r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Previous Installations";
 
 fn admin(mut t: Tweak) -> Tweak {
     t.needs_admin = true;
@@ -51,17 +55,17 @@ fn restart(mut t: Tweak) -> Tweak {
 pub fn catalog() -> Vec<Tweak> {
     use Risk::*;
     vec![
-        admin(tw("telemetry-off", "Privacy", "Reduce Windows telemetry", "Sets the diagnostic data level to the minimum and stops the Connected User Experiences (DiagTrack) service.", Low, vec![
+        admin(tw("telemetry-off", "Privacy", "Reduce Windows telemetry", "Sets the diagnostic data level to the minimum and stops the Connected User Experiences (DiagTrack) service", Low, vec![
             reg(r"HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection", "AllowTelemetry", Raw::dword(0)),
             Op::Service { name: "DiagTrack", startup: "disabled" },
         ])),
-        tw("ad-id-off", "Privacy", "Turn off advertising ID", "Stops apps from using a unique advertising ID to track you across apps.", Safe, vec![
+        tw("ad-id-off", "Privacy", "Turn off advertising ID", "Stops apps from using a unique advertising ID to track you across apps", Safe, vec![
             reg(r"HKCU\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo", "Enabled", Raw::dword(0)),
         ]),
-        tw("tailored-off", "Privacy", "Turn off tailored experiences", "Stops Windows using diagnostic data to show personalised tips and ads.", Safe, vec![
+        tw("tailored-off", "Privacy", "Turn off tailored experiences", "Stops Windows using diagnostic data to show personalised tips and ads", Safe, vec![
             reg(r"HKCU\Software\Microsoft\Windows\CurrentVersion\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled", Raw::dword(0)),
         ]),
-        tw("suggestions-off", "Privacy", "Remove Start menu and lock screen ads", "Disables suggested apps, promoted tiles, tips and \"fun facts\" injected by Windows.", Safe, vec![
+        tw("suggestions-off", "Privacy", "Remove Start menu and lock screen ads", "Disables suggested apps, promoted tiles, tips and \"fun facts\" injected by Windows", Safe, vec![
             reg(CDM, "SubscribedContent-338388Enabled", Raw::dword(0)),
             reg(CDM, "SubscribedContent-338389Enabled", Raw::dword(0)),
             reg(CDM, "SubscribedContent-353694Enabled", Raw::dword(0)),
@@ -70,61 +74,75 @@ pub fn catalog() -> Vec<Tweak> {
             reg(CDM, "SoftLandingEnabled", Raw::dword(0)),
             reg(CDM, "RotatingLockScreenOverlayEnabled", Raw::dword(0)),
         ]),
-        admin(tw("activity-history-off", "Privacy", "Turn off activity history", "Stops Windows recording and uploading the apps and files you open (Timeline).", Safe, vec![
+        admin(tw("activity-history-off", "Privacy", "Turn off activity history", "Stops Windows recording and uploading the apps and files you open (Timeline)", Safe, vec![
             reg(POLICY_SYSTEM, "EnableActivityFeed", Raw::dword(0)),
             reg(POLICY_SYSTEM, "PublishUserActivities", Raw::dword(0)),
             reg(POLICY_SYSTEM, "UploadUserActivities", Raw::dword(0)),
         ])),
-        tw("bing-search-off", "Privacy", "Disable web results in Start search", "Start menu search only looks at your PC, which is faster and does not send your queries to Bing.", Safe, vec![
+        tw("bing-search-off", "Privacy", "Disable web results in Start search", "Start menu search only looks at your PC, which is faster and does not send your queries to Bing", Safe, vec![
             reg(r"HKCU\Software\Policies\Microsoft\Windows\Explorer", "DisableSearchBoxSuggestions", Raw::dword(1)),
         ]),
-        tw("copilot-off", "Privacy", "Turn off Windows Copilot", "Applies the policy that disables the Copilot sidebar and taskbar button.", Safe, vec![
+        tw("copilot-off", "Privacy", "Turn off Windows Copilot", "Applies the policy that disables the Copilot sidebar and taskbar button", Safe, vec![
             reg(r"HKCU\Software\Policies\Microsoft\Windows\WindowsCopilot", "TurnOffWindowsCopilot", Raw::dword(1)),
         ]),
-        restart(tw("visual-fx-perf", "Performance", "Faster menus and window animations", "Removes menu delay and minimise/maximise animations so the interface feels snappier.", Safe, vec![
+        restart(tw("visual-fx-perf", "Performance", "Faster menus and window animations", "Removes menu delay and minimise/maximise animations so the interface feels snappier", Safe, vec![
             reg(r"HKCU\Control Panel\Desktop", "MenuShowDelay", Raw::sz("0")),
             reg(r"HKCU\Control Panel\Desktop\WindowMetrics", "MinAnimate", Raw::sz("0")),
             reg(r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects", "VisualFXSetting", Raw::dword(2)),
         ])),
-        tw("transparency-off", "Performance", "Turn off transparency effects", "Disables the blur and transparency in the taskbar and windows. Uses less GPU.", Safe, vec![
+        tw("transparency-off", "Performance", "Turn off transparency effects", "Disables the blur and transparency in the taskbar and windows. Uses less GPU", Safe, vec![
             reg(r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "EnableTransparency", Raw::dword(0)),
         ]),
-        admin(tw("fast-shutdown", "Performance", "Faster shutdown", "Cuts the time Windows waits for apps and services to close from 5 s to 2 s and auto-ends hung apps.", Low, vec![
+        admin(tw("fast-shutdown", "Performance", "Faster shutdown", "Cuts the time Windows waits for apps and services to close from 5 s to 2 s and auto-ends hung apps", Low, vec![
             reg(r"HKLM\SYSTEM\CurrentControlSet\Control", "WaitToKillServiceTimeout", Raw::sz("2000")),
             reg(r"HKCU\Control Panel\Desktop", "WaitToKillAppTimeout", Raw::sz("2000")),
             reg(r"HKCU\Control Panel\Desktop", "HungAppTimeout", Raw::sz("2000")),
             reg(r"HKCU\Control Panel\Desktop", "AutoEndTasks", Raw::sz("1")),
         ])),
-        admin(tw("sysmain-off", "Performance", "Disable SysMain (Superfetch) on SSDs", "SysMain preloads apps into RAM, which gives little benefit on an SSD and can cause disk activity. Skip this if you use a hard drive.", Medium, vec![
+        admin(tw("sysmain-off", "Performance", "Disable SysMain (Superfetch) on SSDs", "SysMain preloads apps into RAM, which gives little benefit on an SSD and can cause disk activity. Skip this if you use a hard drive", Medium, vec![
             Op::Service { name: "SysMain", startup: "disabled" },
         ])),
-        tw("plan-high", "Performance", "High Performance power plan", "Keeps the CPU responsive instead of throttling down. Uses more power, so best for desktops.", Low, vec![Op::Power { ultimate: false }]),
-        tw("plan-ultimate", "Performance", "Ultimate Performance power plan", "Removes micro-latencies for the highest performance. Uses the most power. Best for desktops and gaming PCs.", Medium, vec![Op::Power { ultimate: true }]),
-        tw("game-mode-on", "Gaming", "Turn on Game Mode", "Tells Windows to prioritise the game you are playing and hold back background updates.", Safe, vec![
+        tw("plan-high", "Performance", "High Performance power plan", "Keeps the CPU responsive instead of throttling down. Uses more power, so best for desktops", Low, vec![Op::Power { ultimate: false }]),
+        tw("plan-ultimate", "Performance", "Ultimate Performance power plan", "Removes micro-latencies for the highest performance. Uses the most power. Best for desktops and gaming PCs", Medium, vec![Op::Power { ultimate: true }]),
+        tw("game-mode-on", "Gaming", "Turn on Game Mode", "Tells Windows to prioritise the game you are playing and hold back background updates", Safe, vec![
             reg(r"HKCU\Software\Microsoft\GameBar", "AutoGameModeEnabled", Raw::dword(1)),
             reg(r"HKCU\Software\Microsoft\GameBar", "AllowAutoGameMode", Raw::dword(1)),
         ]),
-        tw("game-dvr-off", "Gaming", "Disable background game recording", "Stops Game DVR recording in the background, which costs frames per second.", Safe, vec![
+        tw("game-dvr-off", "Gaming", "Disable background game recording", "Stops Game DVR recording in the background, which costs frames per second", Safe, vec![
             reg(r"HKCU\System\GameConfigStore", "GameDVR_Enabled", Raw::dword(0)),
             reg(r"HKCU\Software\Microsoft\Windows\CurrentVersion\GameDVR", "AppCaptureEnabled", Raw::dword(0)),
         ]),
-        restart(admin(tw("hags-on", "Gaming", "Hardware-accelerated GPU scheduling", "Lets the GPU manage its own memory scheduling. Can reduce latency on supported GPUs and drivers. Needs a restart.", Medium, vec![
+        restart(admin(tw("hags-on", "Gaming", "Hardware-accelerated GPU scheduling", "Lets the GPU manage its own memory scheduling. Can reduce latency on supported GPUs and drivers. Needs a restart", Medium, vec![
             reg(r"HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers", "HwSchMode", Raw::dword(2)),
         ]))),
-        admin(tw("net-throttle-off", "Network", "Remove network throttling", "Disables the multimedia network throttle index, which can limit throughput while media or games run.", Low, vec![
+        admin(tw("net-throttle-off", "Network", "Remove network throttling", "Disables the multimedia network throttle index, which can limit throughput while media or games run", Low, vec![
             reg(SYSPROFILE, "NetworkThrottlingIndex", Raw::dword(0xffff_ffff)),
         ])),
-        admin(tw("system-responsiveness", "Network", "Prioritise foreground apps", "Reserves less CPU for background multimedia tasks so the app you are using gets more.", Low, vec![
+        admin(tw("system-responsiveness", "Network", "Prioritise foreground apps", "Reserves less CPU for background multimedia tasks so the app you are using gets more", Low, vec![
             reg(SYSPROFILE, "SystemResponsiveness", Raw::dword(10)),
         ])),
-        restart(tw("classic-context-menu", "Windows 11", "Classic right-click menu", "Brings back the full right-click menu instead of the \"Show more options\" step. Takes effect after Explorer restarts.", Safe, vec![
+        restart(tw("classic-context-menu", "Windows 11", "Classic right-click menu", "Brings back the full right-click menu instead of the \"Show more options\" step. Takes effect after Explorer restarts", Safe, vec![
             Op::Reg { key: r"HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32", name: "", value: Raw::sz(""), delete_key_on_revert: true },
         ])),
-        tw("show-extensions", "Windows 11", "Show file extensions", "Always shows .exe, .pdf and other extensions. Safer and clearer.", Safe, vec![reg(ADV, "HideFileExt", Raw::dword(0))]),
-        tw("show-hidden", "Windows 11", "Show hidden files", "Makes hidden files and folders visible in File Explorer.", Safe, vec![reg(ADV, "Hidden", Raw::dword(1))]),
-        tw("explorer-this-pc", "Windows 11", "Open File Explorer to \"This PC\"", "Opens drives and folders instead of the Home page.", Safe, vec![reg(ADV, "LaunchTo", Raw::dword(1))]),
-        tw("taskbar-left", "Windows 11", "Align taskbar to the left", "Moves the Start button and icons to the left like Windows 10.", Safe, vec![reg(ADV, "TaskbarAl", Raw::dword(0))]),
-        tw("widgets-off", "Windows 11", "Remove Widgets button", "Hides the Widgets button from the taskbar.", Safe, vec![reg(ADV, "TaskbarDa", Raw::dword(0))]),
+        tw("show-extensions", "Windows 11", "Show file extensions", "Always shows .exe, .pdf and other extensions. Safer and clearer", Safe, vec![reg(ADV, "HideFileExt", Raw::dword(0))]),
+        tw("show-hidden", "Windows 11", "Show hidden files", "Makes hidden files and folders visible in File Explorer", Safe, vec![reg(ADV, "Hidden", Raw::dword(1))]),
+        tw("explorer-this-pc", "Windows 11", "Open File Explorer to \"This PC\"", "Opens drives and folders instead of the Home page", Safe, vec![reg(ADV, "LaunchTo", Raw::dword(1))]),
+        tw("taskbar-left", "Windows 11", "Align taskbar to the left", "Moves the Start button and icons to the left like Windows 10", Safe, vec![reg(ADV, "TaskbarAl", Raw::dword(0))]),
+        tw("widgets-off", "Windows 11", "Remove Widgets button", "Hides the Widgets button from the taskbar", Safe, vec![reg(ADV, "TaskbarDa", Raw::dword(0))]),
+        restart(tw("list-effects-off", "Performance", "Turn off taskbar and list animations", "Removes the taskbar animations and the fading selection in File Explorer lists. Helps on older PCs", Safe, vec![
+            reg(ADV, "TaskbarAnimations", Raw::dword(0)),
+            reg(ADV, "ListviewAlphaSelect", Raw::dword(0)),
+            reg(ADV, "ListviewShadow", Raw::dword(0)),
+        ])),
+        tw("camera-off", "Privacy", "Block camera access for apps", "Apps can no longer use the camera until you turn this off. Video calls stop working in the meantime", Medium, vec![
+            reg(CAM, "Value", Raw::sz("Deny")),
+        ]),
+        tw("microphone-off", "Privacy", "Block microphone access for apps", "Apps can no longer use the microphone until you turn this off. Calls and voice chat stop working in the meantime", Medium, vec![
+            reg(MIC, "Value", Raw::sz("Deny")),
+        ]),
+        tw("location-off", "Privacy", "Block location access for apps", "Apps can no longer ask where you are. Maps and weather fall back to a rough location", Low, vec![
+            reg(LOC, "Value", Raw::sz("Deny")),
+        ]),
     ]
 }
 
@@ -252,11 +270,23 @@ pub fn revert_tweak(entry: &UndoEntry) -> Res<()> {
     Ok(())
 }
 
+pub fn is_applied_id(id: &str) -> bool {
+    catalog().iter().find(|t| t.id == id).map(is_applied).unwrap_or(false)
+}
+
+pub fn applied_ids() -> Vec<String> {
+    catalog().iter().filter(|t| is_applied(t)).map(|t| t.id.to_string()).collect()
+}
+
 pub fn apply(ids: Vec<String>) -> Res<Value> {
     let adm = is_admin();
     let all = catalog();
     let mut out = vec![];
     for id in ids {
+        if crate::jobs::requested() {
+            out.push(ItemResult::skipped(&id, "Cancelled"));
+            continue;
+        }
         let Some(t) = all.iter().find(|x| x.id == id) else {
             out.push(ItemResult::failed(&id, "Unknown tweak"));
             continue;
@@ -283,7 +313,7 @@ pub fn revert(id: String) -> Res<Value> {
         e.module == "tweaks" && !e.reverted && e.undo.as_ref().and_then(|u| u.get("tweakId")).and_then(|v| v.as_str()) == Some(id.as_str())
     });
     let Some(entry) = entry else {
-        return to_value(ItemResult::skipped(&id, "Nothing to undo. This tweak was not applied by Zyro."));
+        return to_value(ItemResult::skipped(&id, "Nothing to undo. This tweak was not applied by Zyro"));
     };
     match revert_tweak(&entry) {
         Ok(()) => {
@@ -302,10 +332,11 @@ struct Action {
 }
 
 const ACTIONS: &[Action] = &[
-    Action { id: "flush-dns", label: "Flush DNS cache", description: "Clears stale DNS entries. Fixes sites that will not load after network changes.", needs_admin: false },
-    Action { id: "trim-ssd", label: "Optimize SSD (TRIM)", description: "Sends a TRIM command to the C: drive so the SSD can reclaim free blocks.", needs_admin: true },
-    Action { id: "dism-cleanup", label: "Clean Windows component store", description: "Removes superseded Windows update components with DISM. Can take several minutes.", needs_admin: true },
-    Action { id: "restart-explorer", label: "Restart Windows Explorer", description: "Applies shell tweaks such as the classic right-click menu. The taskbar flickers once.", needs_admin: false },
+    Action { id: "flush-dns", label: "Flush DNS cache", description: "Clears stale DNS entries. Fixes sites that will not load after network changes", needs_admin: false },
+    Action { id: "trim-ssd", label: "Optimize SSD (TRIM)", description: "Sends a TRIM command to the C: drive so the SSD can reclaim free blocks", needs_admin: true },
+    Action { id: "dism-cleanup", label: "Clean Windows component store", description: "Removes superseded Windows update components with DISM. Can take several minutes", needs_admin: true },
+    Action { id: "windows-old", label: "Remove the previous Windows installation", description: "Deletes the Windows.old folder left by a Windows upgrade, using Windows' own Disk Cleanup. You cannot go back to the old version afterwards", needs_admin: true },
+    Action { id: "restart-explorer", label: "Restart Windows Explorer", description: "Applies shell tweaks such as the classic right-click menu. The taskbar flickers once", needs_admin: false },
 ];
 
 pub fn actions_list() -> Res<Value> {
@@ -316,6 +347,21 @@ pub fn actions_list() -> Res<Value> {
             .map(|a| json!({ "id": a.id, "label": a.label, "description": a.description, "needsAdmin": a.needs_admin && !adm }))
             .collect::<Vec<_>>(),
     )
+}
+
+fn remove_windows_old() -> Res<String> {
+    let drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+    let old = std::path::PathBuf::from(format!("{drive}\\Windows.old"));
+    if !old.exists() {
+        return Ok("There is no previous Windows installation on this PC".into());
+    }
+    let before = crate::fsx::dir_size(&old);
+    registry::write(OLD_INSTALL, "StateFlags5432", &Raw::dword(2))?;
+    let ran = run_exe_timeout("cleanmgr", &["/sagerun:5432"], Duration::from_secs(1800));
+    let _ = registry::delete_value(OLD_INSTALL, "StateFlags5432");
+    ran?;
+    let after = if old.exists() { crate::fsx::dir_size(&old) } else { 0 };
+    Ok(format!("Freed {}", crate::util::format_bytes(before.saturating_sub(after))))
 }
 
 pub fn run_action(id: String) -> Res<Value> {
@@ -329,6 +375,7 @@ pub fn run_action(id: String) -> Res<Value> {
         "flush-dns" => run_exe("ipconfig", &["/flushdns"]).map(|o| o.trim().to_string()),
         "trim-ssd" => run_ps_timeout("Optimize-Volume -DriveLetter C -ReTrim", Duration::from_secs(600)).map(|_| "TRIM completed".into()),
         "dism-cleanup" => run_exe_timeout("dism", &["/online", "/Cleanup-Image", "/StartComponentCleanup"], Duration::from_secs(1200)).map(|_| "Component store cleaned".into()),
+        "windows-old" => remove_windows_old(),
         _ => {
             let _ = run_exe("taskkill", &["/f", "/im", "explorer.exe"]);
             Command::new("explorer.exe").spawn().map(|_| "Explorer restarted".to_string()).map_err(|e| e.to_string())
@@ -352,14 +399,14 @@ mod tests {
         ids.sort();
         ids.dedup();
         assert_eq!(ids.len(), n);
-        assert_eq!(n, 24, "update the README count if you add or remove tweaks");
+        assert_eq!(n, 28, "update the README count if you add or remove tweaks");
         for t in &c {
             assert!(t.label.len() > 3 && t.description.len() > 10 && !t.ops.is_empty(), "{}", t.id);
         }
     }
 
     #[test]
-    fn registry_roots_are_valid_and_admin_flags_are_right() {
+    fn admin_flags() {
         for t in catalog() {
             let mut needs = false;
             for op in &t.ops {
@@ -379,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_and_revert_round_trip_on_a_private_key() {
+    fn apply_revert() {
         let key = r"HKCU\Software\ZyroTweakRoundTrip";
         let _ = registry::delete_key(key);
         registry::write(key, "V", &Raw::dword(7)).unwrap();

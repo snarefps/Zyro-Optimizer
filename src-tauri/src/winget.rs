@@ -33,7 +33,7 @@ impl Winget {
     pub fn ready(&self) -> Res<()> {
         match self.run(&["--version"], Duration::from_secs(20)) {
             Ok((true, _, _)) => Ok(()),
-            _ => Err("winget was not found. Install \"App Installer\" from the Microsoft Store (it ships with current Windows 11), then press Retry.".into()),
+            _ => Err("winget was not found. Install \"App Installer\" from the Microsoft Store (it ships with current Windows 11), then press Retry".into()),
         }
     }
 }
@@ -368,7 +368,7 @@ exit 1
     }
 
     #[test]
-    fn an_update_installs_verifies_and_records_how_to_go_back() {
+    fn update_ok() {
         let f = Fake::new(app("1.0.0", "2.0.0", "ok"));
         let (r, steps) = run(&f, false);
         assert_eq!(r.outcome, Outcome::Updated { from: "1.0.0".into(), to: "2.0.0".into(), note: None });
@@ -385,7 +385,7 @@ exit 1
     }
 
     #[test]
-    fn an_app_that_is_current_is_not_reported_as_updated() {
+    fn already_current() {
         let f = Fake::new(app("2.0.0", "2.0.0", "uptodate"));
         let (r, _) = run(&f, false);
         assert_eq!(r.outcome, Outcome::UpToDate);
@@ -393,7 +393,7 @@ exit 1
     }
 
     #[test]
-    fn a_corrupted_installer_is_refused_and_nothing_changes() {
+    fn corrupted_installer() {
         let f = Fake::new(app("1.0.0", "2.0.0", "hash"));
         let (r, _) = run(&f, false);
         let Outcome::Failed(msg) = r.outcome else { panic!("expected failure") };
@@ -411,7 +411,7 @@ exit 1
     }
 
     #[test]
-    fn files_in_use_busy_and_cancelled_are_explained() {
+    fn failure_reasons() {
         for (scenario, expect) in [("inuse", "in use"), ("busy", "Another installation"), ("cancelled", "permission prompt")] {
             let f = Fake::new(app("1.0.0", "2.0.0", scenario));
             let Outcome::Failed(msg) = run(&f, false).0.outcome else { panic!("{scenario}") };
@@ -421,7 +421,7 @@ exit 1
     }
 
     #[test]
-    fn a_false_success_is_caught_by_reading_the_version_back() {
+    fn false_success() {
         let f = Fake::new(app("1.0.0", "2.0.0", "noop"));
         let (r, _) = run(&f, false);
         let Outcome::Failed(msg) = r.outcome else { panic!("a false success was accepted") };
@@ -430,7 +430,7 @@ exit 1
     }
 
     #[test]
-    fn an_installer_that_removes_the_app_gets_the_old_version_reinstalled() {
+    fn removed_app_restored() {
         let f = Fake::new(app("1.0.0", "2.0.0", "crash"));
         let (r, steps) = run(&f, false);
         let Outcome::Failed(msg) = r.outcome else { panic!() };
@@ -440,7 +440,7 @@ exit 1
     }
 
     #[test]
-    fn when_the_old_version_cannot_come_back_the_user_is_told_exactly_that() {
+    fn restore_impossible() {
         let mut a = app("1.0.0", "2.0.0", "crash");
         a["rollback"] = json!("fail");
         let f = Fake::new(a);
@@ -450,7 +450,7 @@ exit 1
     }
 
     #[test]
-    fn a_rollback_restores_the_recorded_version_and_checks_it() {
+    fn rollback_ok() {
         let f = Fake::new(app("1.0.0", "2.0.0", "ok"));
         let undo = run(&f, false).0.undo.unwrap();
         assert_eq!(f.version().as_deref(), Some("2.0.0"));
@@ -460,7 +460,7 @@ exit 1
     }
 
     #[test]
-    fn a_failed_rollback_is_an_error_not_a_success() {
+    fn rollback_failed() {
         let mut a = app("1.0.0", "2.0.0", "ok");
         a["rollback"] = json!("fail");
         let f = Fake::new(a);
@@ -473,7 +473,7 @@ exit 1
     }
 
     #[test]
-    fn a_fresh_install_is_verified_and_only_when_allowed() {
+    fn fresh_install() {
         let mut a = app("0.0.0", "3.0.0", "ok");
         a["installed"] = json!(false);
         a["fresh"] = json!("ok");
@@ -493,21 +493,21 @@ exit 1
     }
 
     #[test]
-    fn parses_the_winget_table_with_and_without_updates() {
+    fn table_parse() {
         let text = "Name                 Id                       Version   Available  Source\n------------------------------------------------------------------------\nGit                  Git.Git                  2.45.1    2.46.0     winget\nVLC media player     VideoLAN.VLC             3.0.21               winget\n";
         let t = parse_list(text);
         assert_eq!(t["git.git"], Row { name: "Git".into(), version: "2.45.1".into(), available: "2.46.0".into() });
         assert_eq!(t["videolan.vlc"], Row { name: "VLC media player".into(), version: "3.0.21".into(), available: String::new() });
-        assert!(parse_list("No installed package found matching input criteria.").is_empty());
+        assert!(parse_list("No installed package found matching input criteria").is_empty());
     }
 
     #[test]
     fn explains_real_winget_messages() {
         assert!(explain_failure("X", "Installer hash does not match; this cannot be overridden").contains("Integrity"));
-        assert!(explain_failure("X", "No applicable installer found; see logs for more details.").contains("fits this PC"));
+        assert!(explain_failure("X", "No applicable installer found; see logs for more details").contains("fits this PC"));
         assert!(explain_failure("X", "Installer failed with exit code: 1618").contains("Another installation"));
         assert_eq!(explain_failure("X", "Something odd\nInstaller failed with exit code: 77\n"), "Installer failed with exit code: 77");
-        assert!(up_to_date("No available upgrade found."));
+        assert!(up_to_date("No available upgrade found"));
         assert!(!up_to_date("Successfully installed"));
     }
 

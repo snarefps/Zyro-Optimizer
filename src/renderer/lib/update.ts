@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { zy } from '../api'
+import { runTask } from './tasks'
 
 export interface UpdateInfo { current: string; latest: string; available: boolean; notes: string; published: string }
 interface State { status: 'idle' | 'checking' | 'done' | 'error'; info: UpdateInfo | null; error: string | null; dismissed: string | null; checkedAt: number }
@@ -39,3 +40,14 @@ export function dismissUpdate(version: string) {
 }
 
 export const openReleases = () => zy.system.openReleases()
+
+export function installUpdate() {
+  return runTask({ title: 'Updating Zyro Optimizer', icon: 'available-updates', page: 'settings', message: 'Starting...' }, async (h) => {
+    const off = window.zyro.on('update:progress', (p: { message?: string }) => p?.message && h.update({ message: p.message }))
+    try {
+      const r = await zy.system.installUpdate()
+      if (!r.ok) throw new Error(r.reason ?? 'The update could not be installed')
+      h.done('The installer is starting and Zyro will close')
+    } finally { off() }
+  })
+}

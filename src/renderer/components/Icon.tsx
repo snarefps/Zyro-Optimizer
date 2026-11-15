@@ -22,6 +22,7 @@ const GLYPHS: Record<string, string> = {
   info: '\uE946',
   maintenance: '\uE90F',
   'memory-slot': '\uEEA1',
+  monitor: '\uE7F4',
   'moon-symbol': '\uE708',
   package: '\uE7B8',
   privacy: '\uE72E',

@@ -85,7 +85,7 @@ export function Dns() {
     <>
       <PageHeader
         title="DNS Changer"
-        subtitle="Switch the DNS servers of a network adapter in one click. Pick a global resolver, or an Iranian one that helps game services connect. Every change can be undone from the Restore page."
+        subtitle="Switch the DNS servers of a network adapter in one click. Pick a global resolver, or an Iranian one that helps game services connect. Every change can be undone from the Restore page"
         actions={<><Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Refresh</Button><Button icon="speed" onClick={testSpeed} busy={testing} disabled={!data}>Test speed</Button></>}
       />
       <div className="min-h-0 flex-1 overflow-auto pb-2 pr-1">
@@ -93,7 +93,7 @@ export function Dns() {
         {error ? <Card className="p-6 text-bad">{error}</Card> : loading && !data ? <Loading /> : data && (
           <>
             {!admin && (
-              <div className="mb-3"><Setting icon="info" title="Changing DNS needs administrator rights" description="Use Restart as admin in the sidebar, then come back here." /></div>
+              <div className="mb-3"><Setting icon="info" title="Changing DNS needs administrator rights" description="Use Restart as admin in the sidebar, then come back here" /></div>
             )}
 
             {data.adapters.length === 0 ? (
@@ -133,7 +133,7 @@ export function Dns() {
 
             <section>
               <SectionTitle icon="settings">Custom</SectionTitle>
-              <Setting title="Custom DNS servers" description="Enter an IPv4 address. The secondary server is optional.">
+              <Setting title="Custom DNS servers" description="Enter an IPv4 address. The secondary server is optional">
                 <input type="text" placeholder="Primary, e.g. 9.9.9.9" value={custom.primary} onChange={(e) => setCustom({ ...custom, primary: e.target.value })} className="w-44" />
                 <input type="text" placeholder="Secondary (optional)" value={custom.secondary} onChange={(e) => setCustom({ ...custom, secondary: e.target.value })} className="w-44" />
                 <Button busy={busy === 'custom'} disabled={!canApply || !customOk} onClick={() => change('custom', 'Setting custom DNS', custom.primary.trim(), custom.secondary.trim())}>Apply</Button>
@@ -141,7 +141,7 @@ export function Dns() {
             </section>
 
             <p className="pb-2 pt-4 text-[12px] leading-5 text-mute">
-              The Iranian addresses come from the providers' public pages and the community lists that mirror them, and they can change. Radar Game and 403 use private addresses, so they normally only answer on Iranian networks. Use Test speed to see what works from where you are.
+              The Iranian addresses come from the providers' public pages and the community lists that mirror them, and they can change. Radar Game and 403 use private addresses, so they normally only answer on Iranian networks. Use Test speed to see what works from where you are
             </p>
           </>
         )}

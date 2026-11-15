@@ -6,9 +6,9 @@ import { Badge, Button, Card, Empty, PageHeader, ScanBar, Loading, useLoad, useT
 import { createRestorePoint } from '../lib/restore'
 import { runTask } from '../lib/tasks'
 
-const UNDOABLE = new Set(['registry', 'startup', 'appx', 'dns', 'appver'])
+const UNDOABLE = new Set(['registry', 'startup', 'appx', 'dns', 'appver', 'hosts'])
 const MODULE_ICON: Record<string, string> = {
-  tweaks: 'control-panel', startup: 'rocket', debloat: 'cut', cleaner: 'broom', gamebooster: 'controller', uninstaller: 'package', disk: 'recycle-bin', updates: 'available-updates', dns: 'wifi', apps: 'software-installer'
+  tweaks: 'control-panel', startup: 'rocket', debloat: 'cut', cleaner: 'broom', gamebooster: 'controller', uninstaller: 'package', disk: 'recycle-bin', updates: 'available-updates', dns: 'wifi', apps: 'software-installer', hosts: 'monitor', tidy: 'maintenance', shred: 'recycle-bin', system: 'settings'
 }
 
 export function History() {
@@ -42,12 +42,12 @@ export function History() {
     <>
       <PageHeader
         title="Restore & History"
-        subtitle="Every change Zyro makes is logged here. Registry tweaks, startup changes and removed apps can be undone with one click."
+        subtitle="Every change Zyro makes is logged here. Registry tweaks, startup changes and removed apps can be undone with one click"
         actions={<><Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Refresh</Button><Button icon="restore-page" onClick={restorePoint} busy={rp}>Create restore point</Button></>}
       />
       <Card className="min-h-0 flex-1 overflow-auto">
         <ScanBar active={loading} />
-        {loading && !data ? <Loading /> : !data?.length ? <Empty title="No changes yet" hint="Actions you take will be listed here so you can review or undo them." icon="time-machine" /> : data.map((e, n) => (
+        {loading && !data ? <Loading /> : !data?.length ? <Empty title="No changes yet" hint="Actions you take will be listed here so you can review or undo them" icon="time-machine" /> : data.map((e, n) => (
           <div key={e.id} style={{ animationDelay: `${Math.min(n, 14) * 18}ms` }} className="fade-up flex items-center gap-4 border-b border-line px-4 py-3 transition-colors duration-[83ms] hover:bg-hover/[0.04]">
             <Icon name={MODULE_ICON[e.module] ?? 'time'} size={24} />
             <div className="min-w-0 flex-1">

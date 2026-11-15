@@ -6,7 +6,7 @@ import { sumFreed } from '../lib/actions'
 export function Cleaner() {
   return (
     <>
-      <PageHeader title="Junk Cleaner" subtitle="Finds temporary files, caches, logs and crash dumps. Nothing is deleted until you press Clean. Personal folders are never touched." />
+      <PageHeader title="Junk Cleaner" subtitle="Finds temporary files, caches, logs and crash dumps. Nothing is deleted until you press Clean. Personal folders are never touched" />
       <ScanList
         load={() => zy.cleaner.scan()}
         apply={(ids) => zy.cleaner.apply(ids)}
@@ -16,7 +16,7 @@ export function Cleaner() {
         groupBy={(i) => String(i.meta?.group ?? '')}
         preselect={(i) => i.risk !== 'medium' && i.risk !== 'high' && i.id !== 'recycle-bin'}
         emptyTitle="Your PC is already clean"
-        emptyHint="No removable junk was found. Items marked 'Needs admin' appear once you restart Zyro as administrator."
+        emptyHint="No removable junk was found. Items marked 'Needs admin' appear once you restart Zyro as administrator"
         summarize={(r) => `Freed ${formatBytes(sumFreed(r))}`}
       />
     </>

@@ -54,7 +54,7 @@ export function Processes() {
 
   return (
     <>
-      <PageHeader title="Processes & RAM" subtitle="See what is using your memory and CPU. Free RAM asks Windows to page out idle memory from every process. Nothing is closed." actions={<Button icon="flash-on" onClick={trim} busy={trimBusy}>Free up RAM</Button>} />
+      <PageHeader title="Processes & RAM" subtitle="See what is using your memory and CPU. Free RAM asks Windows to page out idle memory from every process. Nothing is closed" actions={<Button icon="flash-on" onClick={trim} busy={trimBusy}>Free up RAM</Button>} />
       <div className="mb-3 flex items-center gap-3">
         <input type="text" placeholder="Search processes..." value={q} onChange={(e) => setQ(e.target.value)} className="w-64" />
         <label className="flex items-center gap-2 text-[14px] text-soft"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-refresh</label>

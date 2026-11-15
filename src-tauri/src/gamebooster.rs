@@ -1,4 +1,4 @@
-use crate::ctx::{ctx, is_admin};
+use crate::ctx::{ctx, is_admin, PriorityRule};
 use crate::model::{to_value, ItemResult, Res, Risk, ScanItem};
 use crate::monitor::memory;
 use crate::processes::{self, snapshot};
@@ -114,6 +114,10 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
     }
     let mut out = vec![];
     for id in ids {
+        if crate::jobs::requested() {
+            out.push(ItemResult::skipped(&id, "Cancelled"));
+            continue;
+        }
         let r: Res<ItemResult> = (|| {
             if id == "opt:power" {
                 if s.prev_plan.is_none() {
@@ -163,6 +167,137 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
     to_value(out)
 }
 
+pub fn auto_start() -> bool {
+    if load().active {
+        return false;
+    }
+    let mut ids = vec!["opt:power".to_string(), "opt:trim".to_string()];
+    if is_admin() {
+        ids.push("opt:services".into());
+    }
+    apply(ids).is_ok()
+}
+
+pub fn auto_stop() {
+    let _ = restore();
+}
+
+pub fn get_auto() -> Res<Value> {
+    let s = ctx().settings();
+    Ok(json!({ "enabled": s.auto_boost, "games": s.auto_games, "rules": s.priority_rules }))
+}
+
+fn exe_name(raw: &str) -> Option<String> {
+    let n = raw.trim().rsplit(['\\', '/']).next().unwrap_or("").trim();
+    let n = n.strip_suffix(".exe").or_else(|| n.strip_suffix(".EXE")).unwrap_or(n);
+    if n.is_empty() || n.len() > 60 || !n.chars().all(|c| c.is_alphanumeric() || " ._-+()".contains(c)) {
+        return None;
+    }
+    Some(n.to_string())
+}
+
+pub fn set_auto(enabled: bool, games: Vec<String>) -> Res<Value> {
+    let mut list: Vec<String> = vec![];
+    for g in games {
+        let n = exe_name(&g).ok_or_else(|| format!("\"{g}\" is not a program name"))?;
+        if processes::is_critical(&n.to_lowercase()) || never_close(&n) {
+            return Err(format!("{n} is a protected program"));
+        }
+        if !list.iter().any(|x| x.eq_ignore_ascii_case(&n)) {
+            list.push(n);
+        }
+    }
+    list.truncate(40);
+    ctx().update_settings(|s| {
+        s.auto_boost = enabled;
+        s.auto_games = list;
+    });
+    get_auto()
+}
+
+pub fn set_rules(rules: Vec<PriorityRule>) -> Res<Value> {
+    let mut list: Vec<PriorityRule> = vec![];
+    for r in rules {
+        let n = exe_name(&r.exe).ok_or_else(|| format!("\"{}\" is not a program name", r.exe))?;
+        if processes::is_critical(&n.to_lowercase()) {
+            return Err(format!("{n} is a protected program"));
+        }
+        let level = match r.level.as_str() {
+            "high" | "above" | "below" | "normal" => r.level.clone(),
+            _ => return Err("Unknown priority".into()),
+        };
+        if !list.iter().any(|x| x.exe.eq_ignore_ascii_case(&n)) {
+            list.push(PriorityRule { exe: n, level });
+        }
+    }
+    list.truncate(40);
+    ctx().update_settings(|s| s.priority_rules = list);
+    get_auto()
+}
+
+fn refresh_rates() -> Option<(u32, u32)> {
+    use std::mem::{size_of, zeroed};
+    use windows_sys::Win32::Graphics::Gdi::{EnumDisplaySettingsW, DEVMODEW, ENUM_CURRENT_SETTINGS};
+    unsafe {
+        let mut cur: DEVMODEW = zeroed();
+        cur.dmSize = size_of::<DEVMODEW>() as u16;
+        if EnumDisplaySettingsW(std::ptr::null(), ENUM_CURRENT_SETTINGS, &mut cur) == 0 {
+            return None;
+        }
+        let (w, h) = (cur.dmPelsWidth, cur.dmPelsHeight);
+        let mut best = cur.dmDisplayFrequency;
+        let mut i = 0;
+        loop {
+            let mut m: DEVMODEW = zeroed();
+            m.dmSize = size_of::<DEVMODEW>() as u16;
+            if EnumDisplaySettingsW(std::ptr::null(), i, &mut m) == 0 {
+                break;
+            }
+            if m.dmPelsWidth == w && m.dmPelsHeight == h {
+                best = best.max(m.dmDisplayFrequency);
+            }
+            i += 1;
+        }
+        Some((cur.dmDisplayFrequency, best))
+    }
+}
+
+pub fn checks() -> Res<Value> {
+    let power_ok = active_power().map(|(g, _)| g == crate::sysutil::GUID_HIGH || g == crate::sysutil::GUID_ULTIMATE).unwrap_or(false);
+    let mut out = vec![
+        json!({ "id": "game-mode", "label": "Game Mode", "detail": "Windows gives the game priority and holds back background updates", "ok": crate::tweaks::is_applied_id("game-mode-on"), "fix": "Turn on" }),
+        json!({ "id": "power", "label": "Power plan", "detail": "High Performance keeps the CPU from slowing down during a game", "ok": power_ok, "fix": "Switch" }),
+        json!({ "id": "hags", "label": "Hardware-accelerated GPU scheduling", "detail": "Can lower latency on supported graphics drivers. Needs administrator rights and a restart", "ok": crate::tweaks::is_applied_id("hags-on"), "fix": "Turn on" }),
+    ];
+    if let Some((now, best)) = refresh_rates() {
+        out.push(json!({
+            "id": "refresh",
+            "label": "Screen refresh rate",
+            "detail": format!("The screen runs at {now} Hz. The highest rate it supports at this resolution is {best} Hz"),
+            "ok": now + 1 >= best,
+            "fix": "Open display settings"
+        }));
+    }
+    Ok(Value::Array(out))
+}
+
+pub fn fix_check(id: String) -> Res<Value> {
+    let tweak = match id.as_str() {
+        "game-mode" => "game-mode-on",
+        "power" => "plan-high",
+        "hags" => "hags-on",
+        "refresh" => {
+            let _ = Command::new("cmd").args(["/c", "start", "", "ms-settings:display-advanced"]).spawn();
+            return Ok(json!({ "ok": true }));
+        }
+        _ => return Err("Unknown check".into()),
+    };
+    let r = crate::tweaks::apply(vec![tweak.into()])?;
+    let first = r.get(0).cloned().unwrap_or(Value::Null);
+    let ok = first["status"] == "ok";
+    Ok(json!({ "ok": ok, "reason": first["reason"] }))
+}
+
 pub fn status() -> Res<Value> {
     let s = load();
     Ok(json!({
@@ -203,7 +338,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn protects_dev_tools_and_system_processes() {
+    fn protected_names() {
         for n in ["Node", "powershell", "explorer", "svchost", "Zyro Optimizer"] {
             assert!(never_close(n), "{n}");
         }
@@ -211,7 +346,26 @@ mod tests {
     }
 
     #[test]
-    fn known_hog_pattern_matches_whole_names_only() {
+    fn program_names_are_cleaned_and_checked() {
+        assert_eq!(exe_name("eldenring").as_deref(), Some("eldenring"));
+        assert_eq!(exe_name("  EldenRing.exe ").as_deref(), Some("EldenRing"));
+        assert_eq!(exe_name(r"C:\Games\Elden Ring\start_protected_game.exe").as_deref(), Some("start_protected_game"));
+        for bad in ["", "a;b", "bad|name", "x&y", &"n".repeat(80)] {
+            assert!(exe_name(bad).is_none(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn check_ids() {
+        let v = checks().unwrap();
+        let ids: Vec<&str> = v.as_array().unwrap().iter().filter_map(|c| c["id"].as_str()).collect();
+        for id in ["game-mode", "power", "hags"] {
+            assert!(ids.contains(&id), "{id}");
+        }
+    }
+
+    #[test]
+    fn hog_pattern() {
         let re = Regex::new(KNOWN_HOGS).unwrap();
         assert!(re.is_match("OneDrive") && re.is_match("Spotify"));
         assert!(!re.is_match("OneDriveXYZ") && !re.is_match("game"));

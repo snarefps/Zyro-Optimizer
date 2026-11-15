@@ -9,7 +9,7 @@ use tauri_plugin_autostart::ManagerExt;
 fn friendly_restore_error(raw: &str) -> String {
     let l = raw.to_lowercase();
     if l.contains("disabled") || l.contains("turned off") || l.contains("not enabled") {
-        "System Protection is turned off for the system drive. Turn it on in Windows (System Protection) to use restore points.".into()
+        "System Protection is turned off for the system drive. Turn it on in Windows (System Protection) to use restore points".into()
     } else {
         raw.lines().find(|x| !x.trim().is_empty()).unwrap_or("Failed").trim().chars().take(200).collect()
     }
@@ -143,23 +143,112 @@ fn is_newer(latest: &str, current: &str) -> bool {
     false
 }
 
-pub fn check_update() -> Res<Value> {
-    let current = env!("CARGO_PKG_VERSION");
-    let script = "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;        $r = Invoke-RestMethod -Uri 'https://api.github.com/repos/snarefps/Zyro-Optimizer/releases/latest' -Headers @{ 'User-Agent'='ZyroOptimizer'; 'Accept'='application/vnd.github+json' } -TimeoutSec 15;        @{ tag = [string]$r.tag_name; notes = [string]$r.body; published = [string]$r.published_at } | ConvertTo-Json -Compress";
+struct Release {
+    tag: String,
+    notes: String,
+    published: String,
+}
+
+fn fetch_latest() -> Res<Release> {
+    let script = "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;\
+        $r = Invoke-RestMethod -Uri 'https://api.github.com/repos/snarefps/Zyro-Optimizer/releases/latest' -Headers @{ 'User-Agent'='ZyroOptimizer'; 'Accept'='application/vnd.github+json' } -TimeoutSec 15;\
+        @{ tag = [string]$r.tag_name; notes = [string]$r.body; published = [string]$r.published_at } | ConvertTo-Json -Compress";
     let out = crate::util::run_ps_timeout(script, std::time::Duration::from_secs(25)).map_err(|e| format!("The update server could not be reached ({e})"))?;
     let v: Value = serde_json::from_str(out.trim()).map_err(|_| "The update answer could not be read".to_string())?;
     let tag = crate::util::str_field(&v, "tag");
     if tag.is_empty() {
         return Err("No release has been published yet".into());
     }
-    let notes: String = crate::util::str_field(&v, "notes").chars().take(1200).collect();
+    Ok(Release { tag, notes: crate::util::str_field(&v, "notes"), published: crate::util::str_field(&v, "published") })
+}
+
+pub fn check_update() -> Res<Value> {
+    let current = env!("CARGO_PKG_VERSION");
+    let r = fetch_latest()?;
     Ok(json!({
         "current": current,
-        "latest": tag.trim_start_matches(['v', 'V']),
-        "available": is_newer(&tag, current),
-        "notes": notes,
-        "published": crate::util::str_field(&v, "published"),
+        "latest": r.tag.trim_start_matches(['v', 'V']),
+        "available": is_newer(&r.tag, current),
+        "notes": r.notes.chars().take(1200).collect::<String>(),
+        "published": r.published,
     }))
+}
+
+fn checksum_in(notes: &str) -> Option<String> {
+    regex::Regex::new(r"\b[0-9a-fA-F]{64}\b").ok()?.find(notes).map(|m| m.as_str().to_lowercase())
+}
+
+fn sha256_hex(path: &std::path::Path) -> Res<String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = f.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hasher.finalize().iter().map(|b| format!("{b:02x}")).collect())
+}
+
+pub fn install_update() -> Res<Value> {
+    let step = |m: &str| crate::ctx::emit("update:progress", json!({ "message": m }));
+    step("Looking for the newest version...");
+    let release = fetch_latest()?;
+    let current = env!("CARGO_PKG_VERSION");
+    if !is_newer(&release.tag, current) {
+        return Ok(json!({ "ok": false, "reason": "You already have the newest version" }));
+    }
+    let valid_tag = regex::Regex::new(r"^v?\d+\.\d+\.\d+$").map_err(|e| e.to_string())?;
+    if !valid_tag.is_match(&release.tag) {
+        return Ok(json!({ "ok": false, "reason": "The newest release has an unexpected name, so Zyro will not download it" }));
+    }
+    let Some(expected) = checksum_in(&release.notes) else {
+        return Ok(json!({ "ok": false, "reason": "The release notes do not list a checksum, so Zyro cannot verify the download. Download it from the releases page instead" }));
+    };
+    let dir = std::env::temp_dir().join("ZyroUpdate");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let file = dir.join(format!("Zyro-Optimizer-{}-setup.exe", release.tag.trim_start_matches(['v', 'V'])));
+    let url = format!("https://github.com/snarefps/Zyro-Optimizer/releases/download/{}/Zyro-Optimizer-x64-setup.exe", release.tag);
+    step("Downloading the installer...");
+    let script = format!(
+        "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;Invoke-WebRequest -Uri '{url}' -OutFile '{}' -UseBasicParsing -TimeoutSec 300",
+        file.to_string_lossy().replace('\'', "''")
+    );
+    run_ps_timeout(&script, Duration::from_secs(330)).map_err(|e| format!("The download failed ({})", e.lines().next().unwrap_or("unknown error")))?;
+    step("Checking the download...");
+    let size = std::fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
+    if size < 100_000 {
+        let _ = std::fs::remove_file(&file);
+        return Ok(json!({ "ok": false, "reason": "The downloaded file is too small to be the installer" }));
+    }
+    if sha256_hex(&file)? != expected {
+        let _ = std::fs::remove_file(&file);
+        return Ok(json!({ "ok": false, "reason": "The download does not match the checksum in the release notes. It was deleted" }));
+    }
+    step("Starting the installer...");
+    std::process::Command::new(&file).spawn().map_err(|e| format!("Could not start the installer: {e}"))?;
+    ctx().log_add("system", &format!("Started the installer for version {}", release.tag.trim_start_matches(['v', 'V'])), "none", None);
+    let app = ctx().app().clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(1500));
+        app.exit(0);
+    });
+    Ok(json!({ "ok": true }))
+}
+
+pub fn notify(body: String) -> Res<Value> {
+    crate::scheduler::notify(&body.chars().take(200).collect::<String>());
+    Ok(Value::Null)
+}
+
+pub fn log_error(source: String, message: String) -> Res<Value> {
+    crate::errlog::record(&source.chars().take(40).collect::<String>(), &message);
+    Ok(Value::Null)
 }
 
 pub fn relaunch_as_admin() -> Res<Value> {
@@ -185,7 +274,14 @@ pub fn relaunch_as_admin() -> Res<Value> {
 
 pub fn get_settings() -> Res<Value> {
     let s = ctx().settings();
-    Ok(json!({ "launchAtLogin": s.launch_at_login, "minimizeToTray": s.minimize_to_tray }))
+    Ok(json!({
+        "launchAtLogin": s.launch_at_login,
+        "minimizeToTray": s.minimize_to_tray,
+        "autoTrim": s.auto_trim,
+        "trimPercent": s.trim_percent,
+        "startupAlerts": s.startup_alerts,
+        "weeklyReport": s.weekly_report
+    }))
 }
 
 pub fn set_setting(key: String, value: bool) -> Res<Value> {
@@ -197,6 +293,20 @@ pub fn set_setting(key: String, value: bool) -> Res<Value> {
             ctx().update_settings(|s| s.launch_at_login = value);
         }
         "minimizeToTray" => ctx().update_settings(|s| s.minimize_to_tray = value),
+        "autoTrim" => ctx().update_settings(|s| s.auto_trim = value),
+        "startupAlerts" => ctx().update_settings(|s| s.startup_alerts = value),
+        "weeklyReport" => ctx().update_settings(|s| {
+            s.weekly_report = value;
+            s.last_report = if value { crate::util::now_ms() } else { 0 };
+        }),
+        _ => return Err("Unknown setting".into()),
+    }
+    get_settings()
+}
+
+pub fn set_number(key: String, value: u64) -> Res<Value> {
+    match key.as_str() {
+        "trimPercent" => ctx().update_settings(|s| s.trim_percent = (value as u32).clamp(60, 95)),
         _ => return Err("Unknown setting".into()),
     }
     get_settings()
@@ -217,6 +327,7 @@ pub fn history_revert(id: String) -> Res<Value> {
         "appx" => crate::debloat::revert(&entry),
         "dns" => crate::dns::revert(&entry),
         "appver" => crate::updates::revert(&entry),
+        "hosts" => crate::net::revert_hosts(&entry),
         _ => Err("This action cannot be undone automatically".to_string()),
     };
     Ok(match r {

@@ -41,9 +41,16 @@ pub struct EmptyResult {
 }
 
 pub fn empty_dir(dir: &Path, is_protected: &dyn Fn(&str) -> bool) -> EmptyResult {
+    empty_dir_until(dir, is_protected, &crate::jobs::requested)
+}
+
+pub fn empty_dir_until(dir: &Path, is_protected: &dyn Fn(&str) -> bool, stop: &dyn Fn() -> bool) -> EmptyResult {
     let mut res = EmptyResult::default();
     let Ok(rd) = fs::read_dir(dir) else { return res };
     for entry in rd.filter_map(|e| e.ok()) {
+        if stop() {
+            break;
+        }
         let path = entry.path();
         if is_protected(&path.to_string_lossy()) {
             res.skipped += 1;
@@ -69,6 +76,29 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    #[test]
+    fn stop_midway() {
+        let root = std::env::temp_dir().join(format!("zyro-stop-{}", crate::util::now_ms()));
+        fs::create_dir_all(&root).unwrap();
+        for i in 0..10 {
+            fs::write(root.join(format!("f{i}.tmp")), vec![1u8; 4096]).unwrap();
+        }
+        let seen = std::cell::Cell::new(0);
+        let stop = || {
+            seen.set(seen.get() + 1);
+            seen.get() > 4
+        };
+        let r = empty_dir_until(&root, &|_| false, &stop);
+        let left: Vec<_> = fs::read_dir(&root).unwrap().filter_map(|e| e.ok()).collect();
+        assert_eq!(left.len(), 6);
+        assert_eq!(r.freed, 4 * 4096);
+        assert_eq!(r.failed, 0);
+        for e in left {
+            assert_eq!(e.metadata().unwrap().len(), 4096, "a kept file must be whole");
+        }
+        fs::remove_dir_all(&root).unwrap();
+    }
+
     fn make_tree(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!("zyro-{name}-{}", crate::util::now_ms()));
         fs::create_dir_all(root.join("a").join("b")).unwrap();
@@ -80,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn measures_and_empties_keeping_the_folder() {
+    fn empty_keeps_folder() {
         let root = make_tree("empty");
         assert_eq!(dir_size(&root), 6500);
         let r = empty_dir(&root, &|_| false);

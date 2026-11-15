@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0 - 2026-11-15
+
+- Update check can download the installer, compare its SHA-256 with the one in the release notes and start it
+- Start-up time of the last restarts on the Startup page, drive and battery health page
+- Tweak presets (Balanced, Gaming, Privacy, Low-end PC) and four new tweaks: camera, microphone and location access, list animations
+- Privacy page with the apps that used the camera, microphone and location lately
+- Game Booster starts by itself when a chosen game launches, can set process priorities, and checks Game Mode, power plan, GPU scheduling and refresh rate
+- Automatic RAM trim, alerts for new startup items, weekly summary, notification when a long job finishes
+- Tidy Up for empty folders and broken shortcuts, file shredder, app cache cleaners (Discord, Teams, Spotify, Steam, VS Code, npm, pip, NuGet), removal of the previous Windows installation
+- Network tools: connection time to DNS and game servers, DNS cache flush, hosts file editor with backups and undo
+- Quick panel on the tray icon, size map in the Uninstaller, PC report, backup and restore of settings, error log, keyboard shortcuts (Ctrl+1 to 9, Ctrl+,), first-run introduction
+- Jobs can be cancelled from the Action Center. A cancel stops before the next step starts, so nothing is left half done
+- The start-up card on the Startup page now shows real starts from the Windows System log when Windows' own timing is not readable, and can ask for permission to read it
+- The bundled IDM helper was removed
+
 ## 1.2.0 - 2026-10-14
 
 - Install Apps: 42 apps installed through winget, with versions, details, checksum and a save-installer-only option

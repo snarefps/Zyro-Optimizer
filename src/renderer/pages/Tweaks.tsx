@@ -5,6 +5,7 @@ import { Badge, Button, Card, PageHeader, RiskBadge, ScanBar, SectionTitle, Sett
 import { applyEach } from '../lib/actions'
 import { createRestorePoint } from '../lib/restore'
 import { runTask } from '../lib/tasks'
+import { PRESETS, switchTweak } from '../lib/tweaks'
 
 const CATEGORIES: { name: string; icon: string }[] = [
   { name: 'Privacy', icon: 'privacy' },
@@ -13,7 +14,6 @@ const CATEGORIES: { name: string; icon: string }[] = [
   { name: 'Network', icon: 'wifi' },
   { name: 'Windows 11', icon: 'windows-11' }
 ]
-const RECOMMENDED = ['ad-id-off', 'tailored-off', 'suggestions-off', 'bing-search-off', 'activity-history-off', 'telemetry-off', 'game-dvr-off', 'game-mode-on', 'show-extensions', 'transparency-off', 'fast-shutdown']
 
 export function Tweaks() {
   const { data, loading, error, reload, setData } = useLoad<ScanItem[]>(() => zy.tweaks.scan())
@@ -21,14 +21,13 @@ export function Tweaks() {
   const toast = useToast()
   const [pending, setPending] = useState<Set<string>>(new Set())
   const [running, setRunning] = useState<string | null>(null)
-  const [bulkBusy, setBulkBusy] = useState(false)
+  const [presetBusy, setPresetBusy] = useState<string | null>(null)
   const [rpBusy, setRpBusy] = useState(false)
 
   async function setTweak(i: ScanItem, on: boolean) {
     setPending((p) => new Set(p).add(i.id))
     try {
-      const res = await (on ? zy.tweaks.apply([i.id]) : zy.tweaks.revert(i.id))
-      const r = Array.isArray(res) ? res[0] : res
+      const r = await switchTweak(i.id, on)
       if (r.status === 'ok') {
         setData((d) => (d ?? []).map((x) => (x.id === i.id ? { ...x, meta: { ...x.meta, applied: on } } : x)))
         toast('ok', `${i.label}: ${on ? 'applied' : 'undone'}${r.reason ? `. ${r.reason}` : ''}`)
@@ -38,22 +37,22 @@ export function Tweaks() {
     setPending((p) => { const n = new Set(p); n.delete(i.id); return n })
   }
 
-  async function applyRecommended() {
-    setBulkBusy(true)
-    const todo = (data ?? []).filter((i) => RECOMMENDED.includes(i.id) && !i.meta?.applied && !i.needsAdmin)
+  async function applyPreset(preset: (typeof PRESETS)[number]) {
+    setPresetBusy(preset.id)
+    const wanted = (data ?? []).filter((i) => preset.ids.includes(i.id) && !i.meta?.applied)
+    const todo = wanted.filter((i) => !i.needsAdmin)
     const labels = new Map(todo.map((i) => [i.id, i.label]))
     try {
-      if (todo.length === 0) toast('info', 'The recommended tweaks are already applied')
+      if (todo.length === 0) toast('info', wanted.length ? 'The rest of this preset needs administrator rights' : `The ${preset.name} preset is already applied`)
       else await runTask(
-        { title: 'Applying recommended tweaks', icon: 'control-panel', page: 'tweaks', message: 'Preparing...', progress: 2 },
-        async (h) => {
-          return applyEach(h, todo.map((i) => i.id), (id) => labels.get(id) ?? id, 'Applying', (ids) => zy.tweaks.apply(ids))
-        },
-        (r) => `Applied ${r.filter((x) => x.status === 'ok').length} of ${r.length} recommended tweak(s)`
+        { title: `Applying the ${preset.name} preset`, icon: 'control-panel', page: 'tweaks', message: 'Preparing...', progress: 2, cancellable: true },
+        (h) => applyEach(h, todo.map((i) => i.id), (id) => labels.get(id) ?? id, 'Applying', (ids) => zy.tweaks.apply(ids)),
+        (r) => `Applied ${r.filter((x) => x.status === 'ok').length} of ${preset.ids.length} tweak(s)${wanted.length > todo.length ? `, ${wanted.length - todo.length} need administrator rights` : ''}`
       )
+      window.dispatchEvent(new Event('zyro:changed'))
       await reload()
     } catch (e: any) { toast('err', String(e.message ?? e)) }
-    setBulkBusy(false)
+    setPresetBusy(null)
   }
 
   async function restorePoint() {
@@ -78,14 +77,30 @@ export function Tweaks() {
     <>
       <PageHeader
         title="Tweaks"
-        subtitle="Privacy, performance, gaming, network and Windows 11 settings. Each switch records the previous value, so turning it off restores exactly what you had."
-        actions={<><Button variant="ghost" icon="restore-page" onClick={restorePoint} busy={rpBusy} title="Create a Windows restore point you can go back to">Restore point</Button><Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Refresh</Button><Button icon="sparkling" onClick={applyRecommended} busy={bulkBusy}>Apply recommended</Button></>}
+        subtitle="Privacy, performance, gaming, network and Windows 11 settings. Each switch records the previous value, so turning it off restores exactly what you had"
+        actions={<><Button variant="ghost" icon="restore-page" onClick={restorePoint} busy={rpBusy} title="Create a Windows restore point you can go back to">Restore point</Button><Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Refresh</Button><Button icon="sparkling" onClick={() => applyPreset(PRESETS[0])} busy={presetBusy === 'balanced'}>Apply recommended</Button></>}
       />
       <div className="min-h-0 flex-1 overflow-auto pb-2 pr-1">
         <ScanBar active={loading} />
-        {error ? <Card className="p-6 text-bad">{error}</Card> : loading && !data ? <Loading /> : CATEGORIES.map((cat, ci) => (
+        {error ? <Card className="p-6 text-bad">{error}</Card> : loading && !data ? <Loading /> : (
+          <section>
+            <SectionTitle className="!mt-0">Presets</SectionTitle>
+            <div className="grid grid-cols-2 gap-1">
+              {PRESETS.map((p) => (
+                <Card key={p.id} className="flex items-center gap-4 p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-semibold">{p.name}</div>
+                    <div className="text-[12px] leading-4 text-mute">{p.description}</div>
+                  </div>
+                  <Button variant="soft" busy={presetBusy === p.id} disabled={presetBusy !== null} onClick={() => applyPreset(p)}>Apply</Button>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+        {!error && !(loading && !data) && CATEGORIES.map((cat) => (
           <section key={cat.name}>
-            <SectionTitle icon={cat.icon} className={ci === 0 ? '!mt-0' : ''}>{cat.name}</SectionTitle>
+            <SectionTitle icon={cat.icon}>{cat.name}</SectionTitle>
             <div className="space-y-1">
               {(data ?? []).filter((i) => i.meta?.category === cat.name).map((i, n) => (
                 <div key={i.id} style={{ animationDelay: `${n * 25}ms` }} className="fade-up">

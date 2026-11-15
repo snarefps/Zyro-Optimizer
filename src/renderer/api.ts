@@ -27,8 +27,14 @@ export const zy = {
   system: mod('system'),
   dns: mod('dns'),
   apps: mod('apps'),
-  idm: mod('idm'),
-  history: mod('history')
+  history: mod('history'),
+  health: mod('health'),
+  net: mod('net'),
+  tidy: mod('tidy'),
+  shred: mod('shred'),
+  privacy: mod('privacy'),
+  errors: mod('errors'),
+  jobs: mod('jobs')
 }
 
 export type { ItemResult, ScanItem, UndoEntry }

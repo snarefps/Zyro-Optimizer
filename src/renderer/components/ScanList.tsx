@@ -76,7 +76,7 @@ export function ScanList({ load, apply, applyLabel, task, preselect, groupBy, em
     const labels = new Map((data ?? []).map((i) => [i.id, i.label]))
     try {
       const res = await runTask(
-        { title: task.title, icon: task.icon, page: task.page, message: 'Preparing...', progress: 2 },
+        { title: task.title, icon: task.icon, page: task.page, message: 'Preparing...', progress: 2, cancellable: true },
         async (h) => {
           const off = progressChannel ? window.zyro.on(progressChannel, (e: { message?: string }) => e.message && h.update({ message: e.message })) : null
           try { return await applyEach(h, [...sel], (id) => labels.get(id) ?? id, task.verb, apply) } finally { off?.() }
@@ -155,7 +155,7 @@ export function ScanList({ load, apply, applyLabel, task, preselect, groupBy, em
                           <div className="border-t border-line bg-hover/[0.03]">
                             {d === undefined || d === null ? <div className="flex justify-center py-5 text-accent"><ProgressRing size={24} /></div>
                               : 'error' in d ? <div className="px-4 py-3 pl-[52px] text-[14px] text-bad">{d.error}</div>
-                              : d.items.length === 0 ? <div className="px-4 py-3 pl-[52px] text-[14px] text-mute">{d.note ?? 'Nothing to list.'}</div>
+                              : d.items.length === 0 ? <div className="px-4 py-3 pl-[52px] text-[14px] text-mute">{d.note ?? 'Nothing to list'}</div>
                               : (
                                 <>
                                   {d.items.map((f) => (
@@ -185,7 +185,7 @@ export function ScanList({ load, apply, applyLabel, task, preselect, groupBy, em
       </Card>
 
       <Modal open={confirm} title="Please confirm" onClose={() => setConfirm(false)} actions={<><Button variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button><Button onClick={run}>{applyLabel}</Button></>}>
-        {confirmText ?? 'Some selected items are marked "Caution". Zyro records how to undo them on the Restore page, but please check the list first.'}
+        {confirmText ?? 'Some selected items are marked "Caution". Zyro records how to undo them on the Restore page, but please check the list first'}
         <ul className="mt-3 max-h-48 list-disc overflow-auto pl-5 text-mute">
           {selectedItems.slice(0, 40).map((i) => <li key={i.id}>{i.label}</li>)}
         </ul>

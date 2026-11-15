@@ -49,11 +49,11 @@ Older versions, release notes and SHA-256 checksums are on the [Releases page](h
 
 | Area | What you get |
 | --- | --- |
-| **Clean** | Junk cleaner (temp files, update cache, prefetch, thumbnails, crash dumps, Recycle Bin, browser caches), disk analyzer with space map, large-file and duplicate finder, uninstaller with leftover scan |
-| **Speed up** | Startup manager (entries, services, scheduled tasks), game booster that restores everything when you stop, process list with RAM trimmer |
-| **Tune** | 24 reversible tweaks (privacy, performance, gaming, network, Windows 11), debloater for preinstalled apps, app updates through winget that are verified afterwards and can be rolled back, driver age check, **Install Apps** (browsers, download managers, players, utilities, runtimes through winget), **DNS changer** with Google, Cloudflare, Shecan and Iranian gaming DNS (Radar Game, Electro, 403, Begzar) |
-| **Automate** | Scheduled cleaning from the tray, history page with one-click undo |
-| **Interface** | Windows 11 Settings style interface, Action Center with live progress for every job, Ctrl+K command palette, dark, light and system themes, update check |
+| **Clean** | Junk cleaner (temp files, update cache, prefetch, thumbnails, crash dumps, Recycle Bin, browser caches, Discord, Teams, Spotify, Steam, VS Code, npm and pip caches) where every row shows what is inside, tidy up for empty folders and broken shortcuts, disk analyzer with space map, large-file and duplicate finder, uninstaller with leftover scan and a size map, file shredder |
+| **Speed up** | Startup manager (entries, services, scheduled tasks) with the start-up time of the last restarts, game booster that restores everything when you stop, starts by itself when a game launches, sets process priorities and checks Game Mode, power plan, GPU scheduling and refresh rate, process list with RAM trimmer and automatic trimming, drive and battery health |
+| **Tune** | 28 reversible tweaks (privacy, performance, gaming, network, Windows 11) with Gaming, Privacy, Balanced and Low-end presets, a privacy page that shows which apps used the camera, microphone and location, network tools (connection time to DNS and game servers, DNS cache, hosts file editor), cleanup of the previous Windows installation, debloater for preinstalled apps, app updates through winget that are verified afterwards and can be rolled back, driver age check, **Install Apps** (browsers, download managers, players, utilities, runtimes through winget), **DNS changer** with Google, Cloudflare, Shecan and Iranian gaming DNS (Radar Game, Electro, 403, Begzar) |
+| **Automate** | Scheduled cleaning from the tray, a quick panel on the tray icon, alerts for new startup items, a weekly summary, history page with one-click undo, backup and restore of your settings, PC report, error log |
+| **Interface** | Windows 11 Settings style interface, Action Center with live progress for every job, Ctrl+K command palette, dark, light and system themes, update check that can download, verify and start the installer |
 
 ## Safety
 
@@ -62,7 +62,7 @@ Older versions, release notes and SHA-256 checksums are on the [Releases page](h
 
 - Automatic deletes go through a protected-path list (Windows, Program Files, Documents, Desktop and so on).
 - Files you pick by hand go to the Recycle Bin.
-- Restore points are never created behind your back. Create one with a click (Tweaks page or Settings) and delete old ones from the app. It needs admin rights and System Protection.
+- Restore points are not created automatically. Create one with a click (Tweaks page or Settings) and delete old ones from the app. It needs admin rights and System Protection.
 - The interface talks to the backend through one command that dispatches to a fixed list of functions.
 
 > [!TIP]

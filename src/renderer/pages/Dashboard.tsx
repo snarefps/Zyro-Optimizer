@@ -121,7 +121,7 @@ export function Dashboard() {
       <Setting
         icon="sparkling"
         title="Smart Optimize"
-        description={report ? `Freed ${formatBytes(report.freed)} of disk space and ${formatBytes(report.ram)} of RAM` : 'Safely removes junk files and frees idle RAM. Nothing personal is touched.'}
+        description={report ? `Freed ${formatBytes(report.freed)} of disk space and ${formatBytes(report.ram)} of RAM` : 'Safely removes junk files and frees idle RAM. Nothing personal is touched'}
       >
         <Button onClick={optimize} busy={busy}>{busy ? 'Optimizing...' : 'Optimize now'}</Button>
       </Setting>
@@ -147,7 +147,7 @@ export function Dashboard() {
         {!ready ? (
           <Setting icon="info" title="Scanning your PC..." />
         ) : issues.length === 0 ? (
-          <Setting icon="thumb-up" title="Your PC is in great shape" description="Nothing needs attention." />
+          <Setting icon="thumb-up" title="Your PC is in great shape" description="Nothing needs attention" />
         ) : issues.map((i) => (
           <Setting key={i.text} icon={i.icon} title={i.text}>
             <Button variant="soft" onClick={() => go(i.to)}>{i.action}</Button>

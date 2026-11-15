@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { usePresence } from '../hooks/usePresence'
-import { clearFinished, dismissTask, setActionCenterOpen, Task, useActionCenterOpen, useTasks } from '../lib/tasks'
+import { cancelTask, clearFinished, dismissTask, setActionCenterOpen, Task, useActionCenterOpen, useTasks } from '../lib/tasks'
 import { Icon } from './Icon'
 import { Button, ProgressBar } from './ui'
 
@@ -67,7 +67,7 @@ function TaskCard({ t }: { t: Task }) {
       <div className="flex items-start gap-3">
         <div className="relative">
           <Icon name={t.icon} size={32} />
-          {!running && <Icon name={t.status === 'done' ? 'checkmark' : 'error'} size={16} className="check-pop absolute -bottom-1 -right-1 rounded-full bg-panel" />}
+          {!running && <Icon name={t.status === 'done' ? 'checkmark' : t.status === 'cancelled' ? 'cancel' : 'error'} size={16} className="check-pop absolute -bottom-1 -right-1 rounded-full bg-panel" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
@@ -86,6 +86,7 @@ function TaskCard({ t }: { t: Task }) {
         <div className="mt-3 flex items-center gap-3">
           <div className="flex-1"><ProgressBar value={t.progress} /></div>
           {t.progress !== null && <span className="w-9 text-right text-[12px] tabular-nums text-soft">{Math.round(t.progress)}%</span>}
+          {t.cancellable && <Button variant="ghost" className="!h-7 !px-3" disabled={t.cancelling} onClick={(e) => { e.stopPropagation(); cancelTask(t.id) }} title="Stops after the current step. Nothing is left half done">Cancel</Button>}
         </div>
       )}
     </div>
@@ -122,7 +123,7 @@ export function ActionCenterPanel() {
             <div className="flex flex-col items-center py-16 text-center">
               <Icon name="checkmark" size={56} className="mb-3 text-mute" />
               <div className="font-semibold">No activity yet</div>
-              <div className="mt-1 max-w-[260px] text-[12px] text-mute">Cleaning, boosting and updating show their progress here, and finished jobs stay for review.</div>
+              <div className="mt-1 max-w-[260px] text-[12px] text-mute">Cleaning, boosting and updating show their progress here, and finished jobs stay for review</div>
             </div>
           )}
           {running.length > 0 && (
@@ -171,7 +172,7 @@ export function TaskDock() {
       <div className="flex items-center gap-3 pr-6">
         <div className="relative">
           <Icon name={shown.icon} size={32} />
-          {!isRunning && <Icon name={shown.status === 'done' ? 'checkmark' : 'error'} size={16} className="check-pop absolute -bottom-1 -right-1 rounded-full bg-panel" />}
+          {!isRunning && <Icon name={shown.status === 'done' ? 'checkmark' : shown.status === 'cancelled' ? 'cancel' : 'error'} size={16} className="check-pop absolute -bottom-1 -right-1 rounded-full bg-panel" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
@@ -185,6 +186,7 @@ export function TaskDock() {
         <div className="mt-3 flex items-center gap-3">
           <div className="flex-1"><ProgressBar value={shown.progress} /></div>
           {shown.progress !== null && <span className="w-9 text-right text-[12px] tabular-nums text-soft">{Math.round(shown.progress)}%</span>}
+          {shown.cancellable && <Button variant="ghost" className="!h-7 !px-3" disabled={shown.cancelling} onClick={(e) => { e.stopPropagation(); cancelTask(shown.id) }} title="Stops after the current step. Nothing is left half done">Cancel</Button>}
         </div>
       )}
     </div>

@@ -2,12 +2,13 @@ import { ComponentType, useEffect, useLayoutEffect, useRef, useState } from 'rea
 import { formatBytes, zy } from './api'
 import { ActionCenterButton, ActionCenterPanel, TaskDock } from './components/ActionCenter'
 import { CommandPalette } from './components/CommandPalette'
+import { Intro, StartupAlert } from './components/Notices'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GLYPH_FONT, Icon } from './components/Icon'
 import { WindowControls } from './components/TitleBar'
 import { Button, Kbd, ToastHost, useToast } from './components/ui'
 import { logTask } from './lib/tasks'
-import { checkOnStartup, dismissUpdate, openReleases, useUpdate } from './lib/update'
+import { checkOnStartup, dismissUpdate, installUpdate, openReleases, useUpdate } from './lib/update'
 import { go, ROUTES } from './lib/routes'
 import { resolve, setThemeMode, useThemeMode } from './lib/theme'
 import { Apps } from './pages/Apps'
@@ -17,18 +18,24 @@ import { Debloat } from './pages/Debloat'
 import { Disk } from './pages/Disk'
 import { Dns } from './pages/Dns'
 import { GameBooster } from './pages/GameBooster'
+import { Health } from './pages/Health'
 import { History } from './pages/History'
+import { Network } from './pages/Network'
+import { Privacy } from './pages/Privacy'
 import { Processes } from './pages/Processes'
 import { Scheduler } from './pages/Scheduler'
 import { Settings } from './pages/Settings'
+import { Shredder } from './pages/Shredder'
 import { Startup } from './pages/Startup'
+import { Tidy } from './pages/Tidy'
 import { Tweaks } from './pages/Tweaks'
 import { Uninstaller } from './pages/Uninstaller'
 import { Updates } from './pages/Updates'
 
 const PAGES: Record<string, ComponentType> = {
   dashboard: Dashboard, cleaner: Cleaner, disk: Disk, uninstaller: Uninstaller, startup: Startup, gamebooster: GameBooster, processes: Processes,
-  tweaks: Tweaks, debloat: Debloat, updates: Updates, apps: Apps, dns: Dns, scheduler: Scheduler, history: History, settings: Settings
+  tweaks: Tweaks, debloat: Debloat, updates: Updates, apps: Apps, dns: Dns, scheduler: Scheduler, history: History, settings: Settings,
+  tidy: Tidy, shredder: Shredder, health: Health, privacy: Privacy, network: Network
 }
 
 const currentRoute = () => window.location.hash.replace(/^#\//, '') || 'dashboard'
@@ -68,6 +75,7 @@ function Shell() {
   const mode = useThemeMode()
   const toast = useToast()
   const update = useUpdate()
+  const [installing, setInstalling] = useState(false)
   const newVersion = update.info?.available && update.dismissed !== update.info.latest ? update.info : null
 
   useEffect(() => {
@@ -79,7 +87,10 @@ function Shell() {
       logTask({ title: 'Background clean', icon: 'broom', page: 'scheduler', message: p?.freed ? `Freed ${formatBytes(p.freed)}` : 'Ran, nothing to remove' })
     )
     const key = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p) }
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+      if (e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p) }
+      else if (e.key === ',') { e.preventDefault(); go('settings') }
+      else if (/^[1-9]$/.test(e.key) && ROUTES[Number(e.key) - 1]) { e.preventDefault(); go(ROUTES[Number(e.key) - 1].id) }
     }
     window.addEventListener('keydown', key)
     return () => { window.removeEventListener('hashchange', h); window.removeEventListener('keydown', key); off() }
@@ -95,6 +106,12 @@ function Shell() {
     const el = navRef.current?.querySelector('[data-active="true"]') as HTMLElement | null
     setPill(el ? el.offsetTop + (el.offsetHeight - 16) / 2 : null)
   }, [active.id, collapsed])
+
+  async function install() {
+    setInstalling(true)
+    try { await installUpdate() } catch (e: any) { toast('err', String(e.message ?? e)) }
+    setInstalling(false)
+  }
 
   async function elevate() {
     const r = await zy.system.relaunchAsAdmin()
@@ -149,14 +166,14 @@ function Shell() {
           </nav>
           <div className="space-y-0.5 px-1.5 pb-2 pt-1">
             {admin === false && !collapsed && (
-              <div className="fade-in mx-1.5 mb-1 flex items-center gap-3 rounded-lg bg-hover/[0.04] py-2 pl-3 pr-2" title="Some cleaners and tweaks need administrator rights.">
+              <div className="fade-in mx-1.5 mb-1 flex items-center gap-3 rounded-lg bg-hover/[0.04] py-2 pl-3 pr-2" title="Some cleaners and tweaks need administrator rights">
                 <Icon name="warning-shield" size={20} />
                 <div className="min-w-0 flex-1 truncate text-[12px] leading-4 text-mute">Limited mode</div>
                 <button onClick={elevate} className="btn-std h-7 shrink-0 rounded px-2.5 text-[12px]">Restart as admin</button>
               </div>
             )}
             {admin === false && collapsed && (
-              <button onClick={elevate} title="Limited mode. Restart as administrator." className="flex h-10 w-full items-center justify-center rounded hover:bg-hover/[0.06]"><Icon name="warning-shield" size={20} /></button>
+              <button onClick={elevate} title="Limited mode. Restart as administrator" className="flex h-10 w-full items-center justify-center rounded hover:bg-hover/[0.06]"><Icon name="warning-shield" size={20} /></button>
             )}
             {admin && !collapsed && <div className="fade-in flex items-center gap-3 px-3 py-1.5 text-[12px] leading-4 text-mute"><Icon name="security-checked" size={16} />Administrator mode</div>}
             <NavItem id="settings" label="Settings" icon="settings" active={active.id === 'settings'} collapsed={collapsed} pill />
@@ -167,11 +184,13 @@ function Shell() {
           {newVersion && (
             <div className="fade-up mb-1 ml-10 mr-8 mt-2 flex shrink-0 items-center gap-3 rounded-lg bg-panel py-2 pl-4 pr-2 text-[14px] shadow-card">
               <Icon name="available-updates" size={20} />
-              <div className="min-w-0 flex-1 truncate"><span className="font-semibold">Version {newVersion.latest} is available.</span> <span className="text-mute">You have {newVersion.current}.</span></div>
-              <Button onClick={() => openReleases()}>Download</Button>
+              <div className="min-w-0 flex-1 truncate"><span className="font-semibold">Version {newVersion.latest} is available</span> <span className="text-mute">You have {newVersion.current}</span></div>
+              <Button variant="ghost" onClick={() => openReleases()}>Release page</Button>
+              <Button busy={installing} onClick={install}>Install now</Button>
               <button onClick={() => dismissUpdate(newVersion.latest)} title="Dismiss" aria-label="Dismiss" className="flex h-8 w-8 items-center justify-center rounded transition-colors hover:bg-hover/[0.08]"><Icon name="cancel" size={16} /></button>
             </div>
           )}
+          <StartupAlert />
           <div key={active.id} className="page-enter flex min-h-0 flex-1 flex-col overflow-auto pb-6 pl-10 pr-8 pt-3">
             <div className="flex min-h-0 w-full max-w-[1100px] flex-1 flex-col">
               <ErrorBoundary resetKey={active.id}><Page /></ErrorBoundary>
@@ -180,6 +199,7 @@ function Shell() {
         </main>
       </div>
 
+      <Intro />
       <ActionCenterPanel />
       <TaskDock />
       <CommandPalette open={palette} onClose={() => setPalette(false)} />

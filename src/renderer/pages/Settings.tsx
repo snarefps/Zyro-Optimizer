@@ -3,14 +3,16 @@ import { zy } from '../api'
 import { Icon } from '../components/Icon'
 import { Badge, Button, Card, Modal, PageHeader, ScanBar, SectionTitle, Select, Setting, Toggle, useToast } from '../components/ui'
 import { createRestorePoint } from '../lib/restore'
-import { clearFinished, runTask } from '../lib/tasks'
+import { clearFinished, notifyEnabled, runTask, setNotifyEnabled } from '../lib/tasks'
 import { setThemeMode, ThemeMode, useThemeMode } from '../lib/theme'
-import { checkForUpdate, openReleases, useUpdate } from '../lib/update'
+import { checkForUpdate, installUpdate, openReleases, useUpdate } from '../lib/update'
+import { BackupSection, ErrorLogRow, ReportRow, ShortcutsSection } from '../components/SettingsParts'
 
 interface RestorePoint { seq: number; description: string; created: string; byZyro: boolean }
 type PointsState = { ok: true; points: RestorePoint[] } | { ok: false; reason: string } | null
 
-type SysSettings = { launchAtLogin: boolean; minimizeToTray: boolean }
+type BoolKey = 'launchAtLogin' | 'minimizeToTray' | 'autoTrim' | 'startupAlerts' | 'weeklyReport'
+type SysSettings = Record<BoolKey, boolean> & { trimPercent: number }
 
 export function Settings() {
   const mode = useThemeMode()
@@ -23,6 +25,18 @@ export function Settings() {
   const [creating, setCreating] = useState(false)
   const [toDelete, setToDelete] = useState<RestorePoint | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [notify, setNotify] = useState(notifyEnabled())
+  const [updating, setUpdating] = useState(false)
+
+  async function setPercent(v: string) {
+    try { setSys(await zy.system.setNumber('trimPercent', Number(v))) } catch (e: any) { toast('err', String(e.message ?? e)) }
+  }
+
+  async function install() {
+    setUpdating(true)
+    try { await installUpdate() } catch (e: any) { toast('err', String(e.message ?? e)) }
+    setUpdating(false)
+  }
 
   const loadPoints = useCallback(async () => {
     setLoadingPoints(true)
@@ -36,7 +50,7 @@ export function Settings() {
     loadPoints()
   }, [loadPoints])
 
-  const set = async (key: keyof SysSettings, v: boolean) => {
+  const set = async (key: BoolKey, v: boolean) => {
     try { setSys(await zy.system.setSetting(key, v)) } catch (e: any) { toast('err', String(e.message ?? e)) }
   }
 
@@ -67,43 +81,62 @@ export function Settings() {
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Appearance, startup behaviour, restore points and information about Zyro Optimizer." />
+      <PageHeader title="Settings" subtitle="Appearance, startup behaviour, restore points and information about Zyro Optimizer" />
       <div className="pb-2">
         <SectionTitle className="!mt-0">Appearance</SectionTitle>
-        <Setting icon="sun--v1" title="Choose your mode" description="Change the colors that appear in Zyro Optimizer, or follow your Windows setting.">
+        <Setting icon="sun--v1" title="Choose your mode" description="Change the colors that appear in Zyro Optimizer, or follow your Windows setting">
           <Select<ThemeMode> value={mode} onChange={setThemeMode} className="min-w-[200px]" options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Use Windows setting' }]} />
         </Setting>
 
         <SectionTitle>Behaviour</SectionTitle>
         {sys && (
           <div className="space-y-1">
-            <Setting icon="rocket" title="Start with Windows" description="Starts minimized in the tray so scheduled cleaning keeps working.">
+            <Setting icon="rocket" title="Start with Windows" description="Starts minimized in the tray so scheduled cleaning keeps working">
               <Toggle on={sys.launchAtLogin} onChange={(v) => set('launchAtLogin', v)} />
             </Setting>
-            <Setting icon="processor" title="Keep running in the tray when the window is closed" description="Closing the window frees almost all memory. The tray agent uses only a few MB.">
+            <Setting icon="processor" title="Keep running in the tray when the window is closed" description="Closing the window frees almost all memory. The tray agent uses only a few MB">
               <Toggle on={sys.minimizeToTray} onChange={(v) => set('minimizeToTray', v)} />
+            </Setting>
+            <Setting icon="bell" title="Tell me when a long job finishes" description="Shows a Windows notification when a long job finishes while Zyro is in the background">
+              <Toggle on={notify} onChange={(v) => { setNotifyEnabled(v); setNotify(v) }} />
+            </Setting>
+          </div>
+        )}
+
+        <SectionTitle>Automation</SectionTitle>
+        {sys && (
+          <div className="space-y-1">
+            <Setting icon="flash-on" title="Free RAM automatically" description="When memory stays above this level, Zyro asks Windows to trim idle memory. At most once every 10 minutes. Nothing is closed">
+              <Select<string> value={String(sys.trimPercent)} onChange={setPercent} className="w-28" disabled={!sys.autoTrim} options={[75, 80, 85, 90].map((n) => ({ value: String(n), label: `${n}%` }))} />
+              <Toggle on={sys.autoTrim} onChange={(v) => set('autoTrim', v)} />
+            </Setting>
+            <Setting icon="rocket" title="Warn me about new startup items" description="Shows a notice when a program adds itself to Windows startup">
+              <Toggle on={sys.startupAlerts} onChange={(v) => set('startupAlerts', v)} />
+            </Setting>
+            <Setting icon="calendar" title="Weekly summary" description="Once a week, shows what was freed and which startup items were added, and saves the summary in Documents">
+              <Toggle on={sys.weeklyReport} onChange={(v) => set('weeklyReport', v)} />
             </Setting>
           </div>
         )}
 
         <SectionTitle>Restore points</SectionTitle>
         <div className="space-y-1">
-          <Setting icon="restore-page" title="Create a restore point" description="Zyro never creates restore points on its own. Needs administrator rights and System Protection turned on.">
+          <Setting icon="restore-page" title="Create a restore point" description="Zyro never creates restore points on its own. Needs administrator rights and System Protection turned on">
             <Button onClick={createNow} busy={creating}>Create now</Button>
           </Setting>
-          <Setting icon="refresh" title="Refresh the list" description="Read the restore points Windows has stored.">
+          <Setting icon="refresh" title="Refresh the list" description="Read the restore points Windows has stored">
             <Button variant="ghost" onClick={loadPoints} busy={loadingPoints}>Refresh</Button>
           </Setting>
-          <Setting icon="time-machine" title="Open System Restore" description="To go back to a restore point, open System Restore and choose it there." onClick={() => zy.system.openSystemRestore()} />
+          <Setting icon="time-machine" title="Open System Restore" description="To go back to a restore point, open System Restore and choose it there" onClick={() => zy.system.openSystemRestore()} />
         </div>
         <Card className="relative mt-1 overflow-hidden">
           <ScanBar active={loadingPoints} />
           {points === null ? (
             <div className="p-4 text-[14px] text-mute">Reading restore points...</div>
           ) : !points.ok ? (
-            <div className="flex items-start gap-3 p-4 text-[14px] text-mute"><Icon name="info" size={20} />{points.reason}. Restart Zyro as administrator to see and create restore points.</div>
+            <div className="flex items-start gap-3 p-4 text-[14px] text-mute"><Icon name="info" size={20} />{points.reason}. Restart Zyro as administrator to see and create restore points</div>
           ) : points.points.length === 0 ? (
-            <div className="p-4 text-[14px] text-mute">No restore points yet. If this stays empty, System Protection may be turned off for your system drive.</div>
+            <div className="p-4 text-[14px] text-mute">No restore points yet. If this stays empty, System Protection may be turned off for your system drive</div>
           ) : (
             <div className="max-h-[300px] overflow-auto">
               {points.points.map((p, n) => (
@@ -127,13 +160,23 @@ export function Settings() {
           onClose={() => !deleting && setToDelete(null)}
           actions={<><Button variant="ghost" onClick={() => setToDelete(null)} disabled={deleting}>Cancel</Button><Button variant="danger" busy={deleting} onClick={deletePoint}>Delete</Button></>}
         >
-          {toDelete?.description || 'Restore point'}{toDelete?.created ? ` from ${new Date(toDelete.created).toLocaleString()}` : ''} will be removed from Windows. You will not be able to go back to it.
+          {toDelete?.description || 'Restore point'}{toDelete?.created ? ` from ${new Date(toDelete.created).toLocaleString()}` : ''} will be removed from Windows. You will not be able to go back to it
         </Modal>
 
         <SectionTitle>Action Center</SectionTitle>
-        <Setting icon="bell" title="Clear activity history" description="Finished jobs stay in the Action Center so you can review them.">
+        <Setting icon="bell" title="Clear activity history" description="Finished jobs stay in the Action Center so you can review them">
           <Button variant="ghost" onClick={() => { clearFinished(); toast('ok', 'Action Center history cleared') }}>Clear history</Button>
         </Setting>
+
+        <BackupSection />
+
+        <SectionTitle>Tools</SectionTitle>
+        <div className="space-y-1">
+          <ReportRow />
+          <ErrorLogRow />
+        </div>
+
+        <ShortcutsSection />
 
         <SectionTitle>About</SectionTitle>
         <div className="space-y-1">
@@ -143,14 +186,15 @@ export function Settings() {
             description={
               update.status === 'checking' ? 'Checking for updates...'
               : update.status === 'error' ? `Could not check: ${update.error}`
-              : update.info ? (update.info.available ? `Version ${update.info.latest} is available. You have ${update.info.current}.` : `You have the latest version (${update.info.current}).`)
-              : 'Look for a newer version of Zyro Optimizer. Nothing is installed automatically.'
+              : update.info ? (update.info.available ? `Version ${update.info.latest} is available. You have ${update.info.current}` : `You have the latest version (${update.info.current})`)
+              : 'Look for a newer version of Zyro Optimizer. Nothing is installed until you press Install now'
             }
           >
-            {update.info?.available && <Button onClick={() => openReleases()}>Download</Button>}
+            {update.info?.available && <Button variant="ghost" onClick={() => openReleases()}>Release page</Button>}
+            {update.info?.available && <Button onClick={install} busy={updating}>Install now</Button>}
             <Button variant="ghost" onClick={() => checkForUpdate()} busy={update.status === 'checking'}>Check now</Button>
           </Setting>
-          <Setting title="Zyro Optimizer" description={`Version ${version || '...'}. Zyro does not collect or send any data. Every change it makes is logged on the Restore page so it can be undone.`}>
+          <Setting title="Zyro Optimizer" description={`Version ${version || '...'}. Zyro does not collect or send any data. Every change it makes is logged on the Restore page so it can be undone`}>
             <img src="./icon.png" alt="" draggable={false} className="h-10 w-10" />
           </Setting>
           <Setting
@@ -158,7 +202,7 @@ export function Settings() {
             description="t.me/ZeroNullex"
             onClick={() => zy.system.openTelegram()}
           />
-          <div className="pt-3 text-[12px] text-mute">Made by the ZeroNullex Team.</div>
+          <div className="pt-3 text-[12px] text-mute">Made by the ZeroNullex Team</div>
         </div>
       </div>
     </>

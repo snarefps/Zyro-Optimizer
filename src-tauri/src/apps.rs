@@ -71,11 +71,11 @@ const CATALOG: &[App] = &[
 
 fn howto(id: &str) -> Option<&'static str> {
     Some(match id {
-        "Tonec.InternetDownloadManager" => "Open Internet Download Manager after the install, then choose Registration in the Help menu to enter a license key you bought. Without a key it runs as a trial. Zyro does not supply or apply license keys.",
-        "RARLab.WinRAR" => "WinRAR keeps working after its trial and only shows a reminder. To remove the reminder, enter a license you bought under Help, then Enter registration code.",
-        "Valve.Steam" | "EpicGames.EpicGamesLauncher" | "Spotify.Spotify" | "Discord.Discord" | "Zoom.Zoom" | "Telegram.TelegramDesktop" => "Open the app after the install and sign in with your own account.",
-        "Python.Python.3.13" | "Git.Git" | "OpenJS.NodeJS.LTS" => "Open a new terminal window after the install so the updated PATH is picked up.",
-        id if id.starts_with("Microsoft.VCRedist") || id.starts_with("Microsoft.DotNet") || id == "Microsoft.DirectX" => "A runtime has no window. Restart the game or app that asked for it once the install finishes.",
+        "Tonec.InternetDownloadManager" => "Open Internet Download Manager after the install, then choose Registration in the Help menu to enter a license key you bought. Without a key it runs as a trial. Zyro does not supply or apply license keys",
+        "RARLab.WinRAR" => "WinRAR keeps working after its trial and only shows a reminder. To remove the reminder, enter a license you bought under Help, then Enter registration code",
+        "Valve.Steam" | "EpicGames.EpicGamesLauncher" | "Spotify.Spotify" | "Discord.Discord" | "Zoom.Zoom" | "Telegram.TelegramDesktop" => "Open the app after the install and sign in with your own account",
+        "Python.Python.3.13" | "Git.Git" | "OpenJS.NodeJS.LTS" => "Open a new terminal window after the install so the updated PATH is picked up",
+        id if id.starts_with("Microsoft.VCRedist") || id.starts_with("Microsoft.DotNet") || id == "Microsoft.DirectX" => "A runtime has no window. Restart the game or app that asked for it once the install finishes",
         _ => return None,
     })
 }
@@ -233,22 +233,15 @@ pub fn download(id: String) -> Res<Value> {
     Ok(r)
 }
 
-pub fn helper() -> Res<Value> {
-    let exe = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("resources").join("Helper.exe")));
-    let dev = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources").join("Helper.exe");
-    let path = exe.filter(|p| p.exists()).or_else(|| dev.exists().then_some(dev)).ok_or("resources/Helper.exe was not found next to Zyro")?;
-    std::process::Command::new(&path).spawn().map_err(|e| match e.raw_os_error() {
-        Some(740) => "Helper needs administrator rights.".to_string(),
-        _ => format!("Could not start Helper: {e}"),
-    })?;
-    Ok(json!(true))
-}
-
 pub fn apply(ids: Vec<String>) -> Res<Value> {
     let w = Winget::system();
     w.ready()?;
     let mut out = vec![];
     for id in ids {
+        if crate::jobs::requested() {
+            out.push(ItemResult::skipped(&id, "Cancelled"));
+            continue;
+        }
         let Some(entry) = catalog().into_iter().find(|a| a.id == id) else {
             out.push(ItemResult::skipped(&id, "Not in the app list"));
             continue;
@@ -274,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn reads_every_published_hash_and_hashes_files() {
+    fn hash_parsing() {
         let h = "Installer:
   Installer SHA256: ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789
   Installer SHA256: short
@@ -287,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn only_catalog_apps_can_be_queried_or_downloaded() {
+    fn catalog_lookup() {
         assert!(info("Evil.Package".into()).is_err());
         assert!(download_to("Evil.Package", &std::env::temp_dir()).is_err());
         assert!(howto("Tonec.InternetDownloadManager").unwrap().contains("does not supply"));
@@ -295,7 +288,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn downloads_a_real_installer_and_reads_its_info() {
+    fn real_download() {
         let _turn = crate::winget::REAL_WINGET.lock().unwrap_or_else(|e| e.into_inner());
         let i = info("7zip.7zip".into()).expect("info");
         assert!(i["installerUrl"].as_str().unwrap().starts_with("https://"));
@@ -321,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn scan_marks_installed_apps_from_the_real_machine() {
+    fn installed_flags() {
         let _turn = crate::winget::REAL_WINGET.lock().unwrap_or_else(|e| e.into_inner());
         let v = scan().expect("scan failed");
         let list = v.as_array().unwrap();

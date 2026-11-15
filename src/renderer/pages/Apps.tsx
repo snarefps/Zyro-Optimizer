@@ -88,11 +88,11 @@ function Details({ item, onClose }: { item: ScanItem | null; onClose: () => void
           {saved && (
             <div className="mt-3 text-[14px] text-fg">
               Saved {saved.files.map((f) => `${f.name} (${formatBytes(f.size)})`).join(', ')} to {saved.folder}.
-              {saved.verified && ' Its SHA-256 matches the checksum in the winget manifest.'}
+              {saved.verified && ' Its SHA-256 matches the checksum in the winget manifest'}
               <div className="mt-1 break-all text-[12px] text-mute">SHA-256 {saved.files[0]?.sha256}</div>
             </div>
           )}
-          <p className="mt-3 text-[12px] text-mute">The installer is downloaded from the address above by winget, which checks it against the SHA-256 before running it.</p>
+          <p className="mt-3 text-[12px] text-mute">The installer is downloaded from the address above by winget, which checks it against the SHA-256 before running it</p>
         </>
       )}
     </Modal>
@@ -100,13 +100,12 @@ function Details({ item, onClose }: { item: ScanItem | null; onClose: () => void
 }
 
 export function Apps() {
-  const toast = useToast()
   const [detail, setDetail] = useState<ScanItem | null>(null)
   return (
     <>
       <PageHeader
         title="Install Apps"
-        subtitle="Pick the apps you want and Zyro installs them silently with winget, straight from each vendor's official installer. Use Details to see the version and where the installer comes from, or to save it without installing."
+        subtitle="Pick the apps you want and Zyro installs them silently with winget, straight from each vendor's official installer. Use Details to see the version and where the installer comes from, or to save it without installing"
       />
       <ScanList
         load={() => zy.apps.scan()}
@@ -122,14 +121,6 @@ export function Apps() {
           <>
             {i.meta?.update ? <Badge tone="medium" title={`Version ${i.meta.update} is available`}>Update {String(i.meta.update)}</Badge> : null}
             {i.meta?.installed ? <Badge tone="safe">Installed{i.meta.version ? ` ${String(i.meta.version)}` : ''}</Badge> : null}
-            {i.id === 'Tonec.InternetDownloadManager' && (
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); zy.apps.helper().catch((err: any) => toast('err', String(err?.message ?? err))) }}
-                className="link rounded px-2.5 py-1 text-[14px]"
-              >
-                Helper
-              </button>
-            )}
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDetail(i) }}
               className="link rounded px-2.5 py-1 text-[14px]"
@@ -138,9 +129,9 @@ export function Apps() {
             </button>
           </>
         )}
-        confirmText="The selected apps will be downloaded and installed one at a time. Some installers show a Windows permission prompt, and big ones can take a few minutes."
+        confirmText="The selected apps will be downloaded and installed one at a time. Some installers show a Windows permission prompt, and big ones can take a few minutes"
         emptyTitle="Nothing matches"
-        emptyHint="Try a different search."
+        emptyHint="Try a different search"
         loadingHint="Checking which apps you already have..."
         summarize={(r) => `Installed or updated ${r.filter((x) => x.status === 'ok').length} app(s)`}
       />

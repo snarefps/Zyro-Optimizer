@@ -68,7 +68,7 @@ pub fn apply(ids: Vec<String>) -> Res<Value> {
         match Command::new("cmd.exe").raw_arg(format!("/d /s /c \"{cmd}\"")).spawn() {
             Ok(_) => {
                 ctx().log_add("uninstaller", &format!("Started uninstaller: {name}"), "none", None);
-                out.push(ItemResult::ok_note(&id, "Uninstaller started. Follow its window."));
+                out.push(ItemResult::ok_note(&id, "Uninstaller started. Follow its window"));
             }
             Err(e) => out.push(ItemResult::failed(&id, e.to_string())),
         }
@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn refuses_to_remove_outside_the_known_roots() {
+    fn known_roots_only() {
         let v = remove_leftovers(vec![r"C:\Windows\System32".into(), r"C:\Users".into()]).unwrap();
         for r in v.as_array().unwrap() {
             assert_eq!(r["status"], "skipped");

@@ -8,7 +8,7 @@ export function Updates() {
   const [tab, setTab] = useState<'apps' | 'drivers'>('apps')
   return (
     <>
-      <PageHeader title="Updates & Drivers" subtitle="Keep apps current with winget, and review driver ages. Outdated apps are a common source of bugs and security holes." />
+      <PageHeader title="Updates & Drivers" subtitle="Keep apps current with winget, and review driver ages. Outdated apps are a common source of bugs and security holes" />
       <div className="mb-3">
         <Pivot value={tab} onChange={setTab} options={[{ value: 'apps', label: 'App updates' }, { value: 'drivers', label: 'Drivers' }]} />
       </div>
@@ -22,10 +22,10 @@ export function Updates() {
           search
           progressChannel="update:progress"
           preselect={() => true}
-          confirmText="The selected apps will be updated silently by winget, one at a time. Zyro reads the version back afterwards, so an update that did not really happen is reported as failed. Each update can be undone from Restore & History, which reinstalls the previous version. Close the apps first so they can update."
+          confirmText="The selected apps will be updated silently by winget, one at a time. Zyro reads the version back afterwards, so an update that did not really happen is reported as failed. Each update can be undone from Restore & History, which reinstalls the previous version. Close the apps first so they can update"
           emptyTitle="Everything is up to date"
-          emptyHint="winget did not report any newer versions of your installed apps."
-          loadingHint="Asking winget for updates. This can take up to a minute."
+          emptyHint="winget did not report any newer versions of your installed apps"
+          loadingHint="Asking winget for updates. This can take up to a minute"
           summarize={(r) => `Updated ${r.filter((x) => x.status === 'ok').length} app(s)`}
         />
       ) : <Drivers />}
@@ -56,7 +56,7 @@ function Drivers() {
           </div>
         ))}
       </Card>
-      <p className="text-[12px] text-mute">Zyro lists drivers but does not download them from third-party sites. For graphics drivers, use your GPU maker's official app or Windows Update.</p>
+      <p className="text-[12px] text-mute">Zyro lists drivers but does not download them from third-party sites. For graphics drivers, use your GPU maker's official app or Windows Update</p>
     </div>
   )
 }

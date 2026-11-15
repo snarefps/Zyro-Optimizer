@@ -69,7 +69,7 @@ pub fn run_now(manual: bool) -> Res<Value> {
         let freed: u64 = apply_ids(&ids, "Scheduled clean").iter().filter_map(|r| r.freed_bytes).sum();
         ctx().update_settings(|s| s.schedule.last_run = now_ms());
         if !manual {
-            notify(&if freed > 0 { format!("Scheduled clean freed {}.", format_bytes(freed)) } else { "Scheduled clean ran. Nothing to remove.".to_string() });
+            notify(&if freed > 0 { format!("Scheduled clean freed {}", format_bytes(freed)) } else { "Scheduled clean ran. Nothing to remove".to_string() });
             emit("scheduler:ran", json!({ "freed": freed }));
         }
         json!({ "freed": freed })
@@ -106,7 +106,7 @@ mod tests {
     }
 
     #[test]
-    fn never_due_when_disabled_or_without_targets() {
+    fn not_due_when_off() {
         assert!(!is_due(&Schedule { enabled: false, ..base() }, at(2026, 10, 12, 13, 0)));
         assert!(!is_due(&Schedule { targets: vec![], ..base() }, at(2026, 10, 12, 13, 0)));
     }

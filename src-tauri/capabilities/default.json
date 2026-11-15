@@ -3,7 +3,8 @@
   "identifier": "default",
   "description": "Capabilities for the main window",
   "windows": [
-    "main"
+    "main",
+    "quick"
   ],
   "permissions": [
     "core:default",

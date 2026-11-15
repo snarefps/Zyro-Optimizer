@@ -153,3 +153,15 @@ mod tests {
         assert_eq!(run_exe("cmd", &["/c", "echo", "hi"]).unwrap().trim(), "hi");
     }
 }
+
+pub fn documents_dir() -> std::path::PathBuf {
+    static DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        run_ps("[Environment]::GetFolderPath('MyDocuments')")
+            .ok()
+            .map(|s| std::path::PathBuf::from(s.trim()))
+            .filter(|p| p.is_dir())
+            .unwrap_or_else(|| std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join("Documents"))
+    })
+    .clone()
+}

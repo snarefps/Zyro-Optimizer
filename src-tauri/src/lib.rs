@@ -1,33 +1,44 @@
 mod apps;
+mod backup;
 mod cleaner;
 mod ctx;
 mod debloat;
 mod disk;
 mod dns;
 mod duplicates;
+mod errlog;
 mod fsx;
 mod gamebooster;
+mod health;
+mod jobs;
 mod model;
 mod monitor;
+mod net;
+mod privacy;
 mod processes;
 mod registry;
+mod report;
 mod safety;
 mod scheduler;
+mod shred;
 mod startup;
 mod system;
 mod sysutil;
+mod tidy;
 mod tweaks;
 mod undo;
 mod uninstaller;
 mod updates;
 mod util;
+mod watch;
 mod winget;
 
 use model::Res;
 use serde_json::{json, Value};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use std::sync::atomic::{AtomicU64, Ordering};
+use tauri::{AppHandle, Manager, PhysicalPosition, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 fn a_str(a: &[Value], i: usize) -> String {
     a.get(i).and_then(|v| v.as_str()).unwrap_or("").to_string()
@@ -47,6 +58,7 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("cleaner", "scan") => cleaner::scan(),
         ("cleaner", "apply") => cleaner::apply(a_strs(a, 0)),
         ("cleaner", "details") => cleaner::details(&a_str(a, 0)),
+        ("cleaner", "quick") => Ok(json!({ "freed": cleaner::quick_clean() })),
 
         ("startup", "scan") => startup::scan(),
         ("startup", "apply") => startup::apply(a_strs(a, 0)),
@@ -65,6 +77,36 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("gamebooster", "apply") => gamebooster::apply(a_strs(a, 0)),
         ("gamebooster", "status") => gamebooster::status(),
         ("gamebooster", "restore") => gamebooster::restore(),
+        ("gamebooster", "getAuto") => gamebooster::get_auto(),
+        ("gamebooster", "setAuto") => gamebooster::set_auto(a_bool(a, 0), a_strs(a, 1)),
+        ("gamebooster", "setRules") => gamebooster::set_rules(serde_json::from_value(a.first().cloned().unwrap_or(Value::Null)).map_err(|e| e.to_string())?),
+        ("gamebooster", "checks") => gamebooster::checks(),
+        ("gamebooster", "fixCheck") => gamebooster::fix_check(a_str(a, 0)),
+
+        ("health", "boots") => health::boots(),
+        ("health", "allowBootLog") => health::allow_boot_log(),
+        ("health", "drives") => health::drives(),
+        ("health", "battery") => health::battery(),
+        ("health", "batteryReport") => health::battery_report(),
+
+        ("net", "targets") => net::targets(),
+        ("net", "ping") => net::ping(a_strs(a, 0)),
+        ("net", "hostsRead") => net::hosts_read(),
+        ("net", "hostsWrite") => net::hosts_write(a_str(a, 0)),
+
+        ("tidy", "scan") => tidy::scan(),
+        ("tidy", "apply") => tidy::apply(a_strs(a, 0)),
+
+        ("shred", "inspect") => shred::inspect(a_str(a, 0)),
+        ("shred", "run") => shred::run(a_strs(a, 0)),
+
+        ("privacy", "recent") => privacy::recent(),
+
+        ("jobs", "cancel") => jobs::cancel(),
+        ("jobs", "reset") => jobs::reset(),
+
+        ("errors", "list") => errlog::list(),
+        ("errors", "clear") => errlog::clear(),
 
         ("uninstaller", "scan") => uninstaller::scan(),
         ("uninstaller", "apply") => uninstaller::apply(a_strs(a, 0)),
@@ -92,7 +134,6 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("apps", "apply") => apps::apply(a_strs(a, 0)),
         ("apps", "info") => apps::info(a_str(a, 0)),
         ("apps", "download") => apps::download(a_str(a, 0)),
-        ("apps", "helper") => apps::helper(),
 
         ("monitor", "stats") => monitor::stats(),
         ("monitor", "info") => monitor::info(),
@@ -120,6 +161,19 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
         ("system", "openSystemRestore") => system::open_system_restore(),
         ("system", "openTelegram") => system::open_telegram(),
         ("system", "openGithub") => system::open_github(),
+        ("system", "setNumber") => system::set_number(a_str(a, 0), a_u64(a, 1, 0)),
+        ("system", "notify") => system::notify(a_str(a, 0)),
+        ("system", "logError") => system::log_error(a_str(a, 0), a_str(a, 1)),
+        ("system", "installUpdate") => system::install_update(),
+        ("system", "saveReport") => report::save(),
+        ("system", "exportSettings") => backup::export(a.first().cloned().unwrap_or(Value::Null)),
+        ("system", "listBackups") => backup::list(),
+        ("system", "importBackup") => backup::import(a_str(a, 0)),
+        ("system", "openBackupFolder") => backup::folder(),
+        ("system", "showMain") => {
+            show_main_window(ctx::ctx().app());
+            Ok(Value::Null)
+        }
         ("system", "checkUpdate") => system::check_update(),
         ("system", "openReleases") => system::open_releases(),
 
@@ -132,10 +186,73 @@ fn dispatch(module: &str, method: &str, a: &[Value]) -> Res<Value> {
 
 #[tauri::command]
 async fn call(module: String, method: String, args: Vec<Value>) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || dispatch(&module, &method, &args)).await.map_err(|e| e.to_string())?
+    let result = tauri::async_runtime::spawn_blocking({
+        let (module, method) = (module.clone(), method.clone());
+        move || dispatch(&module, &method, &args)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    if let Err(e) = &result {
+        errlog::record(&format!("{module}.{method}"), e);
+    }
+    result
 }
 
-fn show_main_window(app: &AppHandle) {
+static LAST_QUICK_HIDE: AtomicU64 = AtomicU64::new(0);
+
+fn place_quick(app: &AppHandle, w: &tauri::WebviewWindow) {
+    let (Ok(Some(monitor)), Ok(size)) = (app.primary_monitor(), w.outer_size()) else { return };
+    let area = monitor.work_area();
+    let margin = (12.0 * monitor.scale_factor()) as i32;
+    let x = area.position.x + area.size.width as i32 - size.width as i32 - margin;
+    let y = area.position.y + area.size.height as i32 - size.height as i32 - margin;
+    let _ = w.set_position(PhysicalPosition::new(x, y));
+}
+
+fn toggle_quick(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("quick") {
+        if w.is_visible().unwrap_or(false) {
+            let _ = w.hide();
+            return;
+        }
+        if util::now_ms().saturating_sub(LAST_QUICK_HIDE.load(Ordering::Relaxed)) < 400 {
+            return;
+        }
+        place_quick(app, &w);
+        let _ = w.show();
+        let _ = w.set_focus();
+        return;
+    }
+    let built = WebviewWindowBuilder::new(app, "quick", WebviewUrl::App("index.html".into()))
+        .title("Zyro Optimizer")
+        .inner_size(360.0, 424.0)
+        .decorations(false)
+        .resizable(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(true)
+        .visible(false)
+        .background_color(tauri::window::Color(32, 32, 32, 255))
+        .additional_browser_args(WEBVIEW_ARGS)
+        .build();
+    if let Ok(w) = built {
+        place_quick(app, &w);
+        let handle = w.clone();
+        w.on_window_event(move |event| {
+            if let WindowEvent::Focused(false) = event {
+                LAST_QUICK_HIDE.store(util::now_ms(), Ordering::Relaxed);
+                let _ = handle.hide();
+            }
+        });
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+pub fn show_main_window(app: &AppHandle) {
+    if let Some(q) = app.get_webview_window("quick") {
+        let _ = q.hide();
+    }
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
@@ -172,17 +289,18 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             "quit" => app.exit(0),
             "quick" => {
                 std::thread::spawn(|| {
-                    let ids: Vec<String> = cleaner::scan_items().into_iter().filter(|i| i.needs_admin != Some(true) && i.risk == model::Risk::Safe).map(|i| i.id).collect();
-                    let freed: u64 = cleaner::apply_ids(&ids, "Quick clean").iter().filter_map(|r| r.freed_bytes).sum();
-                    scheduler::notify(&format!("Quick clean freed {}.", util::format_bytes(freed)));
+                    let freed = cleaner::quick_clean();
+                    scheduler::notify(&format!("Quick clean freed {}", util::format_bytes(freed)));
                     ctx::emit("scheduler:ran", json!({ "freed": freed }));
                 });
             }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                show_main_window(tray.app_handle());
+            match event {
+                TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } => toggle_quick(tray.app_handle()),
+                TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => show_main_window(tray.app_handle()),
+                _ => {}
             }
         });
     if let Some(icon) = app.default_window_icon() {
@@ -209,6 +327,7 @@ fn wait_for_previous_instance() {
 
 pub fn run() {
     wait_for_previous_instance();
+    errlog::install_panic_hook();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
         .plugin(tauri_plugin_notification::init())
@@ -219,6 +338,7 @@ pub fn run() {
             ctx::init(app.handle().clone(), data_dir);
             build_tray(app.handle())?;
             scheduler::start();
+            watch::start();
             if !std::env::args().any(|a| a == "--hidden") {
                 show_main_window(app.handle());
             }

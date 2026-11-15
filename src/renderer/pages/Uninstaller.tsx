@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ScanItem } from '../../shared/types'
 import { formatBytes, zy } from '../api'
-import { Button, Card, Empty, Modal, PageHeader, ScanBar, Select, Loading, useLoad, useToast } from '../components/ui'
+import { Treemap } from '../components/charts'
+import { Button, Card, Empty, Modal, PageHeader, Pivot, ScanBar, Select, Loading, useLoad, useToast } from '../components/ui'
 import { runTask } from '../lib/tasks'
 
 type Sort = 'name' | 'size' | 'date'
+type View = 'list' | 'map'
 
 export function Uninstaller() {
   const { data, loading, error, reload } = useLoad<ScanItem[]>(() => zy.uninstaller.scan())
@@ -16,11 +18,24 @@ export function Uninstaller() {
   const [leftovers, setLeftovers] = useState<ScanItem[] | null>(null)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  const [view, setView] = useState<View>('list')
+  const box = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(900)
+
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setW(el.clientWidth))
+    ro.observe(el); setW(el.clientWidth)
+    return () => ro.disconnect()
+  }, [view])
 
   const list = useMemo(() => {
     const l = (data ?? []).filter((i) => !q || `${i.label} ${i.detail}`.toLowerCase().includes(q.toLowerCase()))
     return [...l].sort((a, b) => sort === 'size' ? (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0) : sort === 'date' ? String(b.meta?.installDate).localeCompare(String(a.meta?.installDate)) : a.label.localeCompare(b.label))
   }, [data, q, sort])
+
+  const blocks = useMemo(() => (data ?? []).filter((i) => (i.sizeBytes ?? 0) > 0).map((i) => ({ name: i.label, path: i.id, size: i.sizeBytes ?? 0, isDir: true })), [data])
 
   async function uninstall() {
     const t = target!
@@ -29,7 +44,7 @@ export function Uninstaller() {
       await runTask({ title: `Uninstalling ${t.label}`, icon: 'package', page: 'uninstaller', message: 'Starting the uninstaller...' }, async (h) => {
         const [r] = await zy.uninstaller.apply([t.id])
         if (r.status !== 'ok') throw new Error(r.reason ?? 'Failed')
-        h.done('Uninstaller opened. Follow its window to finish.')
+        h.done('Uninstaller opened. Follow its window to finish')
       })
       setLeftoverFor(t)
     } catch (e: any) { toast('err', `${t.label}: ${String(e.message ?? e)}`) }
@@ -63,13 +78,29 @@ export function Uninstaller() {
 
   return (
     <>
-      <PageHeader title="Uninstaller" subtitle="Remove programs with their own uninstaller, then scan for leftover folders they left behind." actions={<Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Rescan</Button>} />
+      <PageHeader title="Uninstaller" subtitle="Remove programs with their own uninstaller, then scan for leftover folders they left behind" actions={<Button variant="ghost" icon="refresh" onClick={reload} busy={loading}>Rescan</Button>} />
       <div className="mb-3 flex items-center gap-2">
         <input type="text" placeholder="Search programs..." value={q} onChange={(e) => setQ(e.target.value)} className="w-64" />
         <span className="ml-3 text-[14px] text-mute">Sort by</span>
         <Select<Sort> value={sort} onChange={setSort} className="w-44" options={[{ value: 'name', label: 'Name' }, { value: 'size', label: 'Size' }, { value: 'date', label: 'Install date' }]} />
-        <span className="ml-auto text-[14px] text-mute">{list.length} programs</span>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-[14px] text-mute">{list.length} programs</span>
+          <Pivot<View> value={view} onChange={setView} options={[{ value: 'list', label: 'List' }, { value: 'map', label: 'Size map' }]} />
+        </div>
       </div>
+      {view === 'map' ? (
+        <Card className="min-h-0 flex-1 overflow-auto p-4">
+          <ScanBar active={loading} />
+          <div ref={box}>
+            {blocks.length === 0 ? <Empty title={loading ? 'Reading your programs...' : 'No sizes to show'} hint="Windows does not list a size for every program" icon="package" /> : (
+              <>
+                <p className="mb-3 text-[14px] text-mute">Bigger blocks use more disk space. Click a block to uninstall that program</p>
+                <Treemap items={blocks} width={Math.max(300, w)} height={420} fmt={formatBytes} onOpen={(b) => { const hit = (data ?? []).find((i) => i.id === b.path); if (hit) setTarget(hit) }} />
+              </>
+            )}
+          </div>
+        </Card>
+      ) : (
       <Card className="min-h-0 flex-1 overflow-auto">
         <ScanBar active={loading} />
         {error ? <div className="p-6 text-bad">{error}</div> : loading && !data ? <Loading /> : list.length === 0 ? <Empty title="No programs found" icon="package" /> : list.map((i, n) => (
@@ -83,17 +114,18 @@ export function Uninstaller() {
           </div>
         ))}
       </Card>
+      )}
 
       <Modal open={!!target} title={`Uninstall ${target?.label ?? ''}?`} onClose={() => setTarget(null)} actions={<><Button variant="ghost" onClick={() => setTarget(null)}>Cancel</Button><Button variant="danger" onClick={uninstall}>Uninstall</Button></>}>
-        This starts the program's own uninstaller. Follow its window to finish. When it is done, come back to scan for leftover files.
+        This starts the program's own uninstaller. Follow its window to finish. When it is done, come back to scan for leftover files
       </Modal>
 
       <Modal open={!!leftoverFor && !leftovers} title="Scan for leftovers?" onClose={() => setLeftoverFor(null)} actions={<><Button variant="ghost" onClick={() => setLeftoverFor(null)}>Not now</Button><Button onClick={findLeftovers} busy={busy}>Scan for leftovers</Button></>}>
-        Once {leftoverFor?.label} has finished uninstalling, Zyro can look for folders it left in Program Files and AppData. Only continue after the uninstaller has completed.
+        Once {leftoverFor?.label} has finished uninstalling, Zyro can look for folders it left in Program Files and AppData. Only continue after the uninstaller has completed
       </Modal>
 
       <Modal wide open={!!leftovers} title={`Leftovers of ${leftoverFor?.label ?? ''}`} onClose={() => setLeftovers(null)} actions={<><Button variant="ghost" onClick={() => setLeftovers(null)}>Close</Button><Button variant="danger" disabled={picked.size === 0} onClick={removeLeftovers}>Delete selected</Button></>}>
-        {leftovers && leftovers.length === 0 ? 'No leftovers found. Either the program is still installed or it cleaned up after itself.' : (
+        {leftovers && leftovers.length === 0 ? 'No leftovers found. Either the program is still installed or it cleaned up after itself' : (
           <div className="space-y-1">
             {(leftovers ?? []).map((l) => (
               <label key={l.id} className="flex items-center gap-3 rounded px-2 py-1.5 hover:bg-hover/[0.05]">
